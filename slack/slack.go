@@ -5,7 +5,6 @@ import (
 	"regexp"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/airware/vili/log"
 	"github.com/airware/vili/util"
@@ -15,8 +14,8 @@ import (
 // WaitGroup is the wait group to synchronize slack rtm shutdowns
 var WaitGroup sync.WaitGroup
 
-// Exiting is a flag indicating that the server is exiting
-var Exiting = false
+// ExitingChan is a flag indicating that the server is exiting
+var ExitingChan = make(chan struct{})
 
 var config *Config
 var client *slack.Client
@@ -219,10 +218,8 @@ func ListenForMessages(messageMap map[*regexp.Regexp]chan<- *Message) {
 	}()
 
 	log.Info("Started slack rtm")
-	ticker := time.NewTicker(1 * time.Second)
-	defer ticker.Stop()
-	for !Exiting {
-		<-ticker.C
+	select {
+	case <-ExitingChan:
 	}
 	log.Info("Disconnecting slack rtm")
 	err := rtm.Disconnect()

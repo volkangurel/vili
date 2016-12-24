@@ -14,8 +14,7 @@ var service Service
 type Service interface {
 	Deployments(env, branch string) ([]string, error)
 	Deployment(env, branch, name string) (Template, error)
-	Pods(env, branch string) ([]string, error)
-	Pod(env, branch, name string) (Template, error)
+	Migrations(env, branch string) (Template, error)
 	Environment(branch string) (Template, error)
 }
 
@@ -29,14 +28,9 @@ func Deployment(env, branch, name string) (Template, error) {
 	return service.Deployment(env, branch, name)
 }
 
-// Pods returns a list of pods for the given environment
-func Pods(env, branch string) ([]string, error) {
-	return service.Pods(env, branch)
-}
-
-// Pod returns a list of pods for the given environment
-func Pod(env, branch, name string) (Template, error) {
-	return service.Pod(env, branch, name)
+// Migrations returns a migrations template for the given branch
+func Migrations(env, branch string) (Template, error) {
+	return service.Migrations(env, branch)
 }
 
 // Environment returns an environment template for the given branch

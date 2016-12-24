@@ -9,6 +9,7 @@ import (
 	"github.com/airware/vili/kube"
 	"github.com/airware/vili/log"
 	"github.com/airware/vili/templates"
+	"github.com/airware/vili/util"
 )
 
 var environments map[string]Environment
@@ -16,13 +17,12 @@ var rwMutex sync.RWMutex
 
 // Environment describes an environment backed by a kubernetes namespace
 type Environment struct {
-	Name      string   `json:"name"`
-	Branch    string   `json:"branch,omitempty"`
-	Protected bool     `json:"protected,omitempty"`
-	Prod      bool     `json:"prod,omitempty"`
-	Approval  bool     `json:"approval,omitempty"`
-	Apps      []string `json:"apps"`
-	Jobs      []string `json:"jobs"`
+	Name        string   `json:"name"`
+	Branch      string   `json:"branch,omitempty"`
+	Protected   bool     `json:"protected,omitempty"`
+	Prod        bool     `json:"prod,omitempty"`
+	Approval    bool     `json:"approval,omitempty"`
+	Deployments []string `json:"deployments"`
 }
 
 // Init initializes the global environments list
@@ -72,27 +72,10 @@ func Create(name, branch, spec string) (map[string][]string, error) {
 		Branch: branch,
 	}
 
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		deployments, err := templates.Deployments(name, branch)
-		if err != nil {
-			log.Error(err)
-		}
-		env.Apps = deployments
-	}()
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		pods, err := templates.Pods(name, branch)
-		if err != nil {
-			log.Error(err)
-		}
-		env.Jobs = pods
-	}()
-
-	wg.Wait()
+	env.Deployments, err = templates.Deployments(name, branch)
+	if err != nil {
+		return nil, err
+	}
 
 	rwMutex.Lock()
 	environments[name] = env
@@ -159,7 +142,7 @@ func RefreshEnvs() error {
 	var wg sync.WaitGroup
 	var mapLock sync.Mutex
 
-	// Load apps and jobs from template files
+	// Load deployments and jobs from template files
 	for _, env := range newEnvs {
 		wg.Add(1)
 		go func(name, branch string) {
@@ -167,23 +150,11 @@ func RefreshEnvs() error {
 			deployments, err := templates.Deployments(name, branch)
 			if err != nil {
 				log.Error(err)
+				return
 			}
 			mapLock.Lock()
 			e := newEnvs[name]
-			e.Apps = deployments
-			newEnvs[name] = e
-			mapLock.Unlock()
-		}(env.Name, env.Branch)
-		wg.Add(1)
-		go func(name, branch string) {
-			defer wg.Done()
-			pods, err := templates.Pods(name, branch)
-			if err != nil {
-				log.Error(err)
-			}
-			mapLock.Lock()
-			e := newEnvs[name]
-			e.Jobs = pods
+			e.Deployments = deployments
 			newEnvs[name] = e
 			mapLock.Unlock()
 		}(env.Name, env.Branch)
@@ -192,6 +163,19 @@ func RefreshEnvs() error {
 	wg.Wait()
 	environments = newEnvs
 	return nil
+}
+
+// RepositoryBranches returns the list of repository branches for this environment
+func (e Environment) RepositoryBranches() (branches []string) {
+	if e.Prod || e.Approval {
+		branches = append(branches, "master")
+	} else {
+		branches = append(branches, "develop")
+		if e.Branch != "" && !util.NewStringSet(branches).Contains(e.Branch) {
+			branches = append(branches, e.Branch)
+		}
+	}
+	return
 }
 
 type byProtectedAndName []Environment

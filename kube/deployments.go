@@ -94,8 +94,8 @@ func (s *DeploymentsService) Replace(env, name string, data *v1beta1.Deployment)
 	return resp, nil, nil
 }
 
-// Scale scales the deployment in `env` with `name`
-func (s *DeploymentsService) Scale(env, name string, data *v1beta1.Scale) (*v1beta1.Scale, *unversioned.Status, error) {
+// Patch patches the deployment in `env` with `name`
+func (s *DeploymentsService) Patch(env, name string, data *v1beta1.Deployment) (*v1beta1.Deployment, *unversioned.Status, error) {
 	client, err := getClient(env)
 	if err != nil {
 		return nil, nil, invalidEnvError(env)
@@ -104,10 +104,10 @@ func (s *DeploymentsService) Scale(env, name string, data *v1beta1.Scale) (*v1be
 	if err != nil {
 		return nil, nil, err
 	}
-	resp := &v1beta1.Scale{}
+	resp := &v1beta1.Deployment{}
 	status, err := client.makeRequest(
 		"PATCH",
-		"deployments/"+name+"/scale",
+		"deployments/"+name,
 		bytes.NewReader(dataBytes),
 		resp,
 	)

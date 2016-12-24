@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -38,4 +39,29 @@ func getImageTagFromDeployment(deployment *v1beta1.Deployment) (string, error) {
 		return "", fmt.Errorf("invalid image: %s", image)
 	}
 	return imageSplit[1], nil
+}
+
+// Clock is a time.Duration struct with custom JSON marshal functions
+type Clock time.Duration
+
+// MarshalJSON implements the json.Marshaler interface
+func (c *Clock) MarshalJSON() ([]byte, error) {
+	return json.Marshal(int64(time.Duration(*c) / time.Millisecond))
+}
+
+// UnmarshalJSON implements the json.Unmarshaler interface
+func (c *Clock) UnmarshalJSON(b []byte) error {
+	var ms int64
+	err := json.Unmarshal(b, &ms)
+	if err != nil {
+		return err
+	}
+	*c = Clock(time.Duration(ms) * time.Millisecond)
+	return nil
+}
+func (c *Clock) humanize() string {
+	if c == nil {
+		return "0"
+	}
+	return ((time.Duration(*c) / time.Second) * time.Second).String()
 }
