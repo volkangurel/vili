@@ -1,3 +1,3 @@
-import { EnvCreateModal } from './EnvCreateModal';
+import { EnvCreateModal } from './EnvCreateModal'
 
-export { EnvCreateModal };
+export { EnvCreateModal }

@@ -23,7 +23,7 @@ import (
 	"github.com/airware/vili/stats"
 	"github.com/airware/vili/templates"
 	"github.com/airware/vili/util"
-	"gopkg.in/labstack/echo.v1"
+	echo "gopkg.in/labstack/echo.v1"
 )
 
 const appName = "vili"
@@ -284,8 +284,8 @@ func healthCheck() error {
 func shutdown() {
 	auth.Cleanup()
 	log.Info("waiting for deployments and slack bot")
-	api.Exiting = true
-	slack.Exiting = true
+	close(api.ExitingChan)
+	close(slack.ExitingChan)
 	api.WaitGroup.Wait()
 	slack.WaitGroup.Wait()
 	log.Info("finished with deployments and slack bot")

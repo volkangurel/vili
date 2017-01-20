@@ -1,4 +1,4 @@
-import { PodsList } from './PodsList';
-import { Pod } from './Pod';
+import { PodsList } from './PodsList'
+import { Pod } from './Pod'
 
-export { PodsList, Pod };
+export { PodsList, Pod }

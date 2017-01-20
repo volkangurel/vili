@@ -1,0 +1,4 @@
+// environments
+export const SHOW_CREATE_ENV_MODAL = 'SHOW_CREATE_ENV_MODAL'
+export const HIDE_CREATE_ENV_MODAL = 'HIDE_CREATE_ENV_MODAL'
+export const DELETE_ENV = 'DELETE_ENV'

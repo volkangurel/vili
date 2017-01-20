@@ -1,26 +1,21 @@
-import React from 'react';
-import ReactDOM from 'react-dom'
-import Firebase from 'firebase';
-import router from './router';
-import style from './less/app.less';
-style.use();
+import React from 'react'
+import ReactDOM from 'react/lib/ReactDOM'
+import { Provider } from 'react-redux'
+import { browserHistory } from 'react-router'
+import { syncHistoryWithStore } from 'react-router-redux'
 
-document.addEventListener('DOMContentLoaded', function() {
-    if (window.appconfig) {
-        // initialize firebase
-        var db = new Firebase(window.appconfig.firebase.url);
-        db.authWithCustomToken(window.appconfig.firebase.token, function(err) {
-            if (err) {
-                // TODO show user error saying firebase auth failed
-                return;
-            }
-        }, {
-            remember: 'sessionOnly'
-        });
-    }
+import configureStore from './store'
+import router from './router'
+import style from './less/app.less'
+style.use()
 
-    // run router
-    router.run(function(Handler) { // eslint-disable-line no-unused-vars
-        ReactDOM.render(<Handler db={db} />, document.body);
-    });
-});
+window.addEventListener('DOMContentLoaded', () => {
+  // const store = configureStore({ session: window.appConfig.user })
+  const store = configureStore({})
+  const history = syncHistoryWithStore(browserHistory, store)
+
+  ReactDOM.render(
+    <Provider store={store}>
+      {router(history)}
+    </Provider>, document.body)
+})

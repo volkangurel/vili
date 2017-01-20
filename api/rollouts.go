@@ -88,7 +88,7 @@ func rolloutCreateHandler(c *echo.Context) error {
 	if rollout.Tag == "" {
 		return server.ErrorResponse(c, errors.BadRequestError("Request missing tag"))
 	}
-	err := rollout.init(
+	err := rollout.Init(
 		env,
 		deploymentName,
 		c.Get("user").(*session.User).Username,
@@ -120,9 +120,9 @@ func rolloutCreateHandler(c *echo.Context) error {
 // 	return c.JSON(http.StatusOK, rollout)
 // }
 
-// init initializes a deployment, checks to make sure it is valid, and writes the deployment
+// Init initializes a deployment, checks to make sure it is valid, and writes the deployment
 // data to firebase
-func (r *Rollout) init(env, deploymentName, username string, async bool) error {
+func (r *Rollout) Init(env, deploymentName, username string, async bool) error {
 	r.ID = util.RandLowercaseString(16)
 	r.Env = env
 	r.Deployment = deploymentName

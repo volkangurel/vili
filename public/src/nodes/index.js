@@ -1,4 +1,4 @@
-import { NodesList } from './NodesList';
-import { Node } from './Node';
+import { NodesList } from './NodesList'
+import { Node } from './Node'
 
-export { NodesList, Node };
+export { NodesList, Node }
