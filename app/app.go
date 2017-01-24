@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"gopkg.in/labstack/echo.v1"
+	echo "gopkg.in/labstack/echo.v1"
 
 	"github.com/airware/vili/config"
 	"github.com/airware/vili/environments"
@@ -21,10 +21,10 @@ const homeTemplate = `
         <title>Vili</title>
         <link rel='shortcut icon' type='image/x-icon' href='https://static.airware.com/app/favicon.ico' />
         <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css" />
-        <script type="application/javascript">window.appconfig = %s;</script>
+        <script type="application/javascript">window.appConfig = %s;</script>
         <script type="application/javascript" src="%s"></script>
     </head>
-    <body></body>
+    <body><div id='app'></div></body>
 </html>`
 
 // AppConfig is the frontend configuration

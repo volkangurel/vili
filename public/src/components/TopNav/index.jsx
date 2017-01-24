@@ -2,11 +2,10 @@ import React, { PropTypes } from 'react'
 import { Link } from 'react-router'
 import { Navbar, Nav, NavDropdown, MenuItem } from 'react-bootstrap'
 
-import { LinkMenuItem } from '../LinkMenuItem'
+import LinkMenuItem from '../LinkMenuItem'
 import * as Actions from '../../actions'
-// import { EnvCreateModal } from '../envs'
 
-export class TopNav extends React.Component {
+export default class TopNav extends React.Component {
   static propTypes = {
     user: PropTypes.object,
     envs: PropTypes.array,
@@ -21,7 +20,7 @@ export class TopNav extends React.Component {
     var userText = user.firstName + ' ' + user.lastName + ' (' + user.username + ')'
 
     // environments
-    var path = window.location.pathname + window.location.search
+    var path = this.props.location.pathname + this.props.location.search
     var spath = path.split('/')
     var envElements = this.props.envs.map(function (env) {
       spath[1] = env.name
@@ -40,6 +39,7 @@ export class TopNav extends React.Component {
       </LinkMenuItem>
     })
 
+    // TODO
     // var envCreateModal = null
     // if (this.state.showCreateEnvModal) {
     //  envCreateModal = <EnvCreateModal onHide={this.hideCreateEnvModal} />
@@ -49,7 +49,7 @@ export class TopNav extends React.Component {
       <Navbar className={this.props.env && this.props.env.prod ? 'prod' : ''}
         fixedTop fluid>
         <div className='navbar-header pull-left'>
-          <Link className='navbar-brand' to='home'>Vili</Link>
+          <Link className='navbar-brand' to='/'>Vili</Link>
         </div>
         <Nav key='user' className='user' pullRight>
           <NavDropdown id='user-dropdown' title={userText}>
@@ -69,22 +69,23 @@ export class TopNav extends React.Component {
   }
 
   get loggedOutNav () {
-    <Navbar fixedTop fluid>
-      <div className='navbar-header pull-left'>
-        <Link className='navbar-brand' to='home'>Vili</Link>
-      </div>
-      <Nav key='user' ulClassName='user' pullRight>
-        <MenuItem title='Login' href='/login'>Login</MenuItem>
-      </Nav>
-    </Navbar>
+    return (
+      <Navbar fixedTop fluid>
+        <div className='navbar-header pull-left'>
+          <Link className='navbar-brand' to='/'>Vili</Link>
+        </div>
+        <Nav key='user' ulClassName='user' pullRight>
+          <MenuItem title='Login' href='/login'>Login</MenuItem>
+        </Nav>
+      </Navbar>
+    )
   }
 
   render () {
     if (this.props.user) {
       return this.loggedInNav
-    } else {
-      return this.loggedOutNav
     }
+    return this.loggedOutNav
   }
 
 }

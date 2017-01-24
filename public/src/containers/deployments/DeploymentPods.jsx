@@ -3,11 +3,11 @@ import { Button, ButtonToolbar } from 'react-bootstrap'
 import { Link } from 'react-router'
 import _ from 'underscore'
 import { Promise } from 'bluebird'
-import { viliApi, displayTime } from '../lib'
-import Table from '../components/Table'
-import Loading from '../components/Loading'
+import { viliApi, displayTime } from '../../lib'
+import Table from '../../components/Table'
+import Loading from '../../components/Loading'
 
-export class AppPods extends React.Component {
+export default class DeploymentPods extends React.Component {
   constructor (props) {
     super(props)
     this.state = {}

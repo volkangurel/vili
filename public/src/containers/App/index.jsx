@@ -1,33 +1,39 @@
 import React, { PropTypes } from 'react'
 import { connect } from 'react-redux'
+import _ from 'underscore'
+
 import TopNav from '../../components/TopNav'
 import SideNav from '../../components/SideNav'
-// import { httpClient } from '../../utils/apiUtils'
-// import { Routes } from '../../routes'
 
 function mapStateToProps (state) {
   return {
     app: state.app.toJS(),
-    session: state.session.toJS()
+    user: state.user,
+    envs: state.envs,
+    defaultEnv: state.defaultEnv
   }
 }
 
 @connect(mapStateToProps)
-export class App extends React.Component {
+export default class App extends React.Component {
   static propTypes = {
+    app: PropTypes.object,
     user: PropTypes.object,
     envs: PropTypes.array,
-    env: PropTypes.object,
+    defaultEnv: PropTypes.string,
+    params: PropTypes.object, // react router provides this
     location: PropTypes.object // react router provides this
   };
 
   render () {
+    const env = _.findWhere(this.props.envs, {name: this.props.params.env})
     return (
       <div className='top-nav container-fluid full-height'>
-        <TopNav user={this.props.user} envs={this.props.envs} env={this.props.env} />
+        <TopNav user={this.props.user} location={this.props.location}
+          envs={this.props.envs} env={env} />
         <div className='page-wrapper'>
           <div className='sidebar'>
-            <SideNav location={this.props.location} env={this.props.env} />
+            <SideNav env={env} nav={this.props.app.nav} />
           </div>
           <div className='content-wrapper'>{this.props.children}</div>
         </div>

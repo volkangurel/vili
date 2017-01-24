@@ -3,9 +3,9 @@ import { Alert, Button } from 'react-bootstrap'
 import _ from 'underscore'
 import moment from 'moment'
 import 'moment-duration-format'
-import { viliApi } from '../lib'
-import Table from '../components/Table'
-import Loading from '../components/Loading'
+import { viliApi } from '../../lib'
+import Table from '../../components/Table'
+import Loading from '../../components/Loading'
 
 class RunButtons extends React.Component {
   constructor (props) {
@@ -152,7 +152,7 @@ class Logs extends React.Component {
   }
 }
 
-export class JobRun extends React.Component {
+export default class MigrationsRun extends React.Component {
   render () {
     var runDB = this.props.db.child(this.props.params.env)
             .child('jobs').child(this.props.params.job)

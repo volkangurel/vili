@@ -1,9 +1,9 @@
 import React from 'react'
 import { Promise } from 'bluebird'
-import { viliApi } from '../lib'
-import Loading from '../components/Loading'
+import { viliApi } from '../../lib'
+import Loading from '../../components/Loading'
 
-export class AppService extends React.Component {
+export default class DeploymentService extends React.Component {
   constructor (props) {
     super(props)
     this.state = {}

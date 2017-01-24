@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sort"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -20,17 +22,16 @@ import (
 	echo "gopkg.in/labstack/echo.v1"
 )
 
-// DeploymentsResponse is the response for the deployment endpoint
+// DeploymentsResponse is the response for the deployments endpoint
 type DeploymentsResponse struct {
-	ReplicaSets map[string]v1beta1.ReplicaSet `json:"replicaSets,omitempty"`
-	Services    *v1.ServiceList               `json:"services,omitempty"`
+	Deployments map[string]*DeploymentResponse `json:"deployments,omitempty"`
 }
 
 func deploymentsHandler(c *echo.Context) error {
 	env := c.Param("env")
 
 	resp := DeploymentsResponse{
-		ReplicaSets: make(map[string]v1beta1.ReplicaSet),
+		Deployments: make(map[string]*DeploymentResponse),
 	}
 	failed := false
 
@@ -47,34 +48,31 @@ func deploymentsHandler(c *echo.Context) error {
 			failed = true
 			return
 		}
-		waitGroup.Add(len(deployments.Items))
 		var rsMutex sync.Mutex
 		for _, deployment := range deployments.Items {
+			resp.Deployments[deployment.Name] = new(DeploymentResponse)
+			// replica sets for deployment
+			waitGroup.Add(1)
 			go func(env string, deployment v1beta1.Deployment) {
 				defer waitGroup.Done()
-				rs, err := getReplicaSetForDeployment(env, &deployment)
+				rh, err := getRolloutHistoryForDeployment(env, &deployment)
+				if err != nil {
+					log.Error(err)
+					failed = true
+					return
+				}
+				rs, err := getReplicaSetForDeployment(&deployment, rh)
 				if err != nil {
 					log.Error(err)
 					failed = true
 					return
 				}
 				rsMutex.Lock()
-				resp.ReplicaSets[deployment.Name] = *rs
+				resp.Deployments[deployment.Name].RolloutHistory = rh
+				resp.Deployments[deployment.Name].ReplicaSet = rs
 				rsMutex.Unlock()
 			}(env, deployment)
 		}
-	}()
-
-	// service
-	waitGroup.Add(1)
-	go func() {
-		defer waitGroup.Done()
-		services, err := kube.Services.List(env)
-		if err != nil {
-			log.Error(err)
-			failed = true
-		}
-		resp.Services = services
 	}()
 
 	waitGroup.Wait()
@@ -87,10 +85,11 @@ func deploymentsHandler(c *echo.Context) error {
 
 // DeploymentResponse is the response for the deployment endpoint
 type DeploymentResponse struct {
-	Repository     []*docker.Image     `json:"repository,omitempty"`
-	DeploymentSpec string              `json:"deploymentSpec,omitempty"`
-	ReplicaSet     *v1beta1.ReplicaSet `json:"replicaSet,omitempty"`
-	Service        *v1.Service         `json:"service,omitempty"`
+	Repository     []*docker.Image       `json:"repository,omitempty"`
+	ReplicaSet     *v1beta1.ReplicaSet   `json:"replicaSet,omitempty"`
+	RolloutHistory []*v1beta1.ReplicaSet `json:"rolloutHistory,omitempty"`
+	Service        *v1.Service           `json:"service,omitempty"`
+	DeploymentSpec string                `json:"deploymentSpec,omitempty"`
 }
 
 func deploymentHandler(c *echo.Context) error {
@@ -156,12 +155,19 @@ func deploymentHandler(c *echo.Context) error {
 			if deployment == nil {
 				return
 			}
-			rs, err := getReplicaSetForDeployment(env, deployment)
+			rh, err := getRolloutHistoryForDeployment(env, deployment)
 			if err != nil {
 				log.Error(err)
 				failed = true
 				return
 			}
+			rs, err := getReplicaSetForDeployment(deployment, rh)
+			if err != nil {
+				log.Error(err)
+				failed = true
+				return
+			}
+			resp.RolloutHistory = rh
 			resp.ReplicaSet = rs
 		}()
 	}
@@ -344,7 +350,7 @@ func deploymentActionHandler(c *echo.Context) (err error) {
 	return c.JSON(http.StatusOK, resp)
 }
 
-func getReplicaSetForDeployment(env string, deployment *v1beta1.Deployment) (*v1beta1.ReplicaSet, error) {
+func getRolloutHistoryForDeployment(env string, deployment *v1beta1.Deployment) ([]*v1beta1.ReplicaSet, error) {
 	replicaSetList, _, err := kube.ReplicaSets.ListForDeployment(env, deployment)
 	if err != nil {
 		return nil, err
@@ -352,12 +358,32 @@ func getReplicaSetForDeployment(env string, deployment *v1beta1.Deployment) (*v1
 	if replicaSetList == nil {
 		return nil, fmt.Errorf("No replicaSet found for deployment %v", *deployment)
 	}
-	deploymentRevision := deployment.ObjectMeta.Annotations["deployment.kubernetes.io/revision"]
+	history := byRevision{}
 	for _, replicaSet := range replicaSetList.Items {
+		rs := replicaSet
+		history = append(history, &rs)
+	}
+	sort.Sort(history)
+	return history, nil
+}
+
+func getReplicaSetForDeployment(deployment *v1beta1.Deployment, history []*v1beta1.ReplicaSet) (*v1beta1.ReplicaSet, error) {
+	deploymentRevision := deployment.ObjectMeta.Annotations["deployment.kubernetes.io/revision"]
+	for _, replicaSet := range history {
 		rsRevision := replicaSet.ObjectMeta.Annotations["deployment.kubernetes.io/revision"]
 		if deploymentRevision == rsRevision {
-			return &replicaSet, nil
+			return replicaSet, nil
 		}
 	}
 	return nil, fmt.Errorf("No replicaSet found for deployment %v", *deployment)
+}
+
+type byRevision []*v1beta1.ReplicaSet
+
+func (s byRevision) Len() int      { return len(s) }
+func (s byRevision) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
+func (s byRevision) Less(i, j int) bool {
+	ri, _ := strconv.Atoi(s[i].ObjectMeta.Annotations["deployment.kubernetes.io/revision"])
+	rj, _ := strconv.Atoi(s[j].ObjectMeta.Annotations["deployment.kubernetes.io/revision"])
+	return ri > rj
 }

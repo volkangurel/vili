@@ -1,7 +1,7 @@
 import React from 'react'
 import { Link } from 'react-router'
 
-export class LinkMenuItem extends React.Component {
+export default class LinkMenuItem extends React.Component {
   constructor (props) {
     super(props)
 

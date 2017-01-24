@@ -22,10 +22,10 @@ export function deleteEnvironment (env) {
     }
     const { results, error } = await api.environments.delete(envName)
     if (error) { // TODO snackbar
-      window.app.snackbar.makeDismissableToast({
-        message: error.message,
-        level: window.app.snackbar.Level.WARNING
-      })
+                 /* window.app.snackbar.makeDismissableToast({
+                    message: error.message,
+                    level: window.app.snackbar.Level.WARNING
+                    }) */
       return
     }
     window.app.snackbar.makeDismissableToast({

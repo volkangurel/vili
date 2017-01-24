@@ -10,13 +10,13 @@ const apiUtils = {
       name = null
     }
     if (name) {
-      return await httpClient.get({ url: '/envs/' + env + '/deployments/' + name, query: qs })
+      return await httpClient.get({ url: '/api/v1/envs/' + env + '/deployments/' + name, query: qs })
     }
-    return await httpClient.get({ url: '/envs/' + env + '/deployments', query: qs })
+    return await httpClient.get({ url: '/api/v1/envs/' + env + '/deployments', query: qs })
   },
 
   async scaleDeployment (env, name, qs) {
-    return await httpClient.put({ url: '/envs/' + env + '/deployments/' + name + '/scale' })
+    return await httpClient.put({ url: '/api/v1/envs/' + env + '/deployments/' + name + '/scale' })
   }
 
 }

@@ -1,34 +1,29 @@
 import React from 'react'
 import _ from 'underscore'
 import { Promise } from 'bluebird'
-import { viliApi, displayTime } from '../lib'
-import Table from '../components/Table'
-import Loading from '../components/Loading'
-import router from '../router'
+import { viliApi, displayTime } from '../../lib'
+import Table from '../../components/Table'
+import Loading from '../../components/Loading'
+import router from '../../router'
 
 class Row extends React.Component {
   constructor (props) {
     super(props)
     this.state = {}
 
-    this.loadData = this.loadData.bind(this)
-    this.deployTag = this.deployTag.bind(this)
+    this.runTag = this.runTag.bind(this)
     this.approveTag = this.approveTag.bind(this)
     this.unapproveTag = this.unapproveTag.bind(this)
   }
 
   render () {
     var data = this.props.data
-    var className = ''
-    if (this.props.deployedAt) {
-      className = 'success'
-    }
     var tag = data.tag
     var date = new Date(data.lastModified)
 
     var actions = []
     if (!this.props.env.prod || this.state.approval) {
-      actions.push(<button type='button' className='btn btn-xs btn-primary' onClick={this.deployTag}>Deploy</button>)
+      actions.push(<button type='button' className='btn btn-xs btn-primary' onClick={this.runTag}>Run</button>)
     }
     if (this.props.env && this.props.env.approval) {
       if (this.state.approval) {
@@ -42,23 +37,20 @@ class Row extends React.Component {
       <td data-column='tag'>{tag}</td>,
       <td data-column='branch'>{data.branch}</td>,
       <td data-column='revision'>{data.revision || 'unknown'}</td>,
-      <td data-column='buildtime'>{displayTime(date)}</td>,
-      <td data-column='deployed_at'>{this.props.deployedAt}</td>
+      <td data-column='buildtime'>{displayTime(date)}</td>
     ], this.props.hasApprovalColumn ? [
       <td data-column='approved'>{this.state.approvalContents}</td>
     ] : [], [
       <td data-column='actions'>{actions}</td>
     ])
 
-    return <tr className={className}>{cells}</tr>
+    return <tr>{cells}</tr>
   }
 
-  loadData () {
+  componentDidMount () {
     var self = this
     if (this.props.approvalDB) {
-      var db = this.props.approvalDB.child(this.props.data.tag)
-      db.off()
-      db.on('value', function (snapshot) {
+      this.props.approvalDB.child(this.props.data.tag).on('value', function (snapshot) {
         var approval = snapshot.val()
         var approvalContents = []
         if (approval) {
@@ -76,33 +68,20 @@ class Row extends React.Component {
     }
   }
 
-  componentDidMount () {
-    this.loadData()
-  }
-
-  componentDidUpdate (prevProps) {
-    if (this.props != prevProps) {
-      this.state = {}
-      this.forceUpdate()
-      this.loadData()
-    }
-  }
-
   componentWillUnmount () {
     if (this.props.approvalDB) {
       this.props.approvalDB.child(this.props.data.tag).off()
     }
   }
 
-  deployTag (event) {
+  runTag () {
     var self = this
-    event.target.setAttribute('disabled', 'disabled')
-    viliApi.deployments.create(this.props.env.name, this.props.app, {
+    viliApi.runs.create(this.props.env.name, this.props.job, {
       tag: this.props.data.tag,
       branch: this.props.data.branch,
       trigger: false
-    }).then(function (deployment) {
-      router.transitionTo(`/${self.props.env.name}/apps/${self.props.app}/deployments/${deployment.id}`)
+    }).then(function (run) {
+      router.transitionTo(`/${self.props.env.name}/jobs/${self.props.job}/runs/${run.id}`)
     })
   }
 
@@ -111,17 +90,17 @@ class Row extends React.Component {
     if (!url) {
       return
     }
-    viliApi.releases.create(this.props.app, this.props.data.tag, {
+    viliApi.releases.create(this.props.job, this.props.data.tag, {
       url: url
     })
   }
 
   unapproveTag () {
-    viliApi.releases.delete(this.props.app, this.props.data.tag)
+    viliApi.releases.delete(this.props.job, this.props.data.tag)
   }
 }
 
-export class App extends React.Component {
+export default class Migrations extends React.Component {
   constructor (props) {
     super(props)
     this.state = {}
@@ -129,7 +108,7 @@ export class App extends React.Component {
   }
 
   render () {
-    if (!this.state.app) {
+    if (!this.state.job) {
       return <Loading />
     }
     var self = this
@@ -137,23 +116,20 @@ export class App extends React.Component {
             {title: 'Tag', key: 'tag'},
             {title: 'Branch', key: 'branch'},
             {title: 'Revision', key: 'revision'},
-            {title: 'Build Time', key: 'buildtime'},
-            {title: 'Deployed', key: 'deployed_at'}
+            {title: 'Build Time', key: 'buildtime'}
     ], this.state.hasApprovalColumn ? [{title: 'Approved', key: 'approved'}] : [], [
             {title: 'Actions', key: 'actions'}
     ])
 
     var rows = []
 
-    _.each(this.state.app.repository, function (data) {
+    _.each(this.state.job.repository, function (data) {
       var date = new Date(data.lastModified)
-      var deployed = data.tag === self.state.currentTag
       var row = <Row data={data} currentTag={self.state.currentTag}
-        deployedAt={deployed ? self.state.deployedAt : ''}
         hasApprovalColumn={self.state.hasApprovalColumn}
         approvalDB={self.state.approvalDB}
         env={self.state.env}
-        app={self.props.params.app}
+        job={self.props.params.job}
                       />
       rows.push({
         _row: row,
@@ -171,26 +147,20 @@ export class App extends React.Component {
   loadData () {
     var self = this
     Promise.props({
-      app: viliApi.apps.get(this.props.params.env, this.props.params.app)
+      job: viliApi.jobs.get(this.props.params.env, this.props.params.job)
     }).then(function (state) {
       state.env = _.findWhere(window.appconfig.envs, {name: self.props.params.env})
       state.hasApprovalColumn = state.env.approval || state.env.prod
       if (state.hasApprovalColumn) {
-        state.approvalDB = self.props.db.child('releases').child(self.props.params.app)
+        state.approvalDB = self.props.db.child('releases').child(self.props.params.job)
       }
-
-      if (!state.app.replicaSet || state.app.replicaSet.status === 'Failure') {
-        state.currentTag = null
-      } else {
-        state.currentTag = state.app.replicaSet.spec.template.spec.containers[0].image.split(':')[1]
-      }
-      state.deployedAt = state.app.replicaSet ? displayTime(new Date(state.app.replicaSet.metadata.creationTimestamp)) : ''
       self.setState(state)
     })
   }
 
   componentDidMount () {
     this.props.activateTab('home')
+    this.loadData()
   }
 
   componentDidUpdate (prevProps) {

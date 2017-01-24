@@ -2,43 +2,44 @@ import React, { PropTypes } from 'react'
 import { Nav } from 'react-bootstrap'
 import _ from 'underscore'
 
-import { LinkMenuItem } from '../LinkMenuItem'
+import LinkMenuItem from '../LinkMenuItem'
 
-export class SideNav extends React.Component {
+export default class SideNav extends React.Component {
   static propTypes = {
     env: PropTypes.object,
-    activeItem: PropTypes.array
+    nav: PropTypes.object
   };
 
   get navItems () {
-    if (!this.prods.env) {
+    const { env, nav } = this.props
+    if (!env || !nav) {
       return
     }
-    var env = this.props.env
-    var activeItem = this.props.activeItem
     var items = []
+    if (env.migrations) {
+      items.push(<LinkMenuItem key='migrations' to={`/${env.name}/migrations`}
+        active={nav.item === 'migrations'}>Migrations</LinkMenuItem>)
+    }
     if (!_.isEmpty(this.props.env.deployments)) {
       items.push(
         <LinkMenuItem key='deployments' to={`/${env.name}/deployments`}
-          active={activeItem[0] === 'deployments' && !activeItem[1]}>
+          active={nav.item === 'deployments' && !nav.subItem}>
           Deployments
         </LinkMenuItem>)
       _.map(env.deployments, function (deployment) {
         items.push(
           <LinkMenuItem key={`deployments-${deployment}`} to={`/${env.name}/deployments/${deployment}`} subitem
-            active={activeItem[0] === 'deployments' && activeItem[1] === deployment}>
+            active={nav.item === 'deployments' && nav.subItem === deployment}>
             {deployment}
           </LinkMenuItem>)
       })
     }
-    if (env.migrations) {
-      items.push(<LinkMenuItem key='migrations' to={`/${env.name}/migrations`}
-        active={activeItem[0] === 'migrations'}>Migrations</LinkMenuItem>)
-    }
+    items.push(<LinkMenuItem key='configmaps' to={`/${env.name}/configmaps`}
+      active={nav.item === 'configmaps'}>Config Maps</LinkMenuItem>)
     items.push(<LinkMenuItem key='nodes' to={`/${env.name}/nodes`}
-      active={activeItem[0] === 'nodes'}>Nodes</LinkMenuItem>)
+      active={nav.item === 'nodes'}>Nodes</LinkMenuItem>)
     items.push(<LinkMenuItem key='pods' to={`/${env.name}/pods`}
-      active={activeItem[0] === 'pods'}>Pods</LinkMenuItem>)
+      active={nav.item === 'pods'}>Pods</LinkMenuItem>)
     return items
   }
 

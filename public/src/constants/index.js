@@ -1,4 +1,10 @@
+// app
+export const ACTIVATE_NAV = 'ACTIVATE_NAV'
+export const ACTIVATE_DEPLOYMENT_TAB = 'ACTIVATE_DEPLOYMENT_TAB'
 // environments
 export const SHOW_CREATE_ENV_MODAL = 'SHOW_CREATE_ENV_MODAL'
 export const HIDE_CREATE_ENV_MODAL = 'HIDE_CREATE_ENV_MODAL'
 export const DELETE_ENV = 'DELETE_ENV'
+// deployments
+export const GET_DEPLOYMENTS = 'GET_DEPLOYMENTS'
+export const SET_DEPLOYMENTS = 'SET_DEPLOYMENTS'

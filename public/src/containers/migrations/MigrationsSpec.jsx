@@ -1,8 +1,8 @@
 import React from 'react'
-import { viliApi } from '../lib'
-import Loading from '../components/Loading'
+import { viliApi } from '../../lib'
+import Loading from '../../components/Loading'
 
-export class JobSpec extends React.Component {
+export default class MigrationsSpec extends React.Component {
   constructor (props) {
     super(props)
 

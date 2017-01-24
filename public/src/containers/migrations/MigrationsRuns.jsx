@@ -1,10 +1,10 @@
 import React from 'react'
 import { Link } from 'react-router'
 import _ from 'underscore'
-import { displayTime } from '../lib'
-import Table from '../components/Table'
+import { displayTime } from '../../lib'
+import Table from '../../components/Table'
 
-export class JobRuns extends React.Component {
+export default class MigrationsRuns extends React.Component {
   constructor (props) {
     super(props)
     this.state = {
@@ -61,7 +61,7 @@ export class JobRuns extends React.Component {
   }
 
   componentDidUpdate (prevProps) {
-    if (this.props.params != prevProps.params) {
+    if (this.props.params !== prevProps.params) {
       this.state.runs = []
       this.forceUpdate()
       this.subscribeData()

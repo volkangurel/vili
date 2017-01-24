@@ -2,21 +2,31 @@ import React, { PropTypes } from 'react'
 import { connect } from 'react-redux'
 import { Link } from 'react-router'
 
+import { activateNav } from '../../actions/deployments'
+
 function mapStateToProps (state) {
   return {
-    envs: state.envs.toJS()
+    envs: state.envs
   }
 }
 
 @connect(mapStateToProps)
-export class Home extends React.Component {
+export default class Home extends React.Component {
   static propTypes = {
     envs: PropTypes.array
   };
 
+  componentDidMount () {
+    this.props.dispatch(activateNav('home'))
+  }
+
+  componentDidUpdate () {
+    this.props.dispatch(activateNav('home'))
+  }
+
   get renderEnvs () {
     var links = this.props.envs.map(function (env) {
-      return <li><Link key={env.name} to={`/${env.name}`}>{env.name}</Link></li>
+      return <li key={env.name}><Link to={`/${env.name}`}>{env.name}</Link></li>
     })
     return <div>
       <div className='view-header'>
@@ -29,11 +39,13 @@ export class Home extends React.Component {
   }
 
   get renderLoggedOut () {
-    <div className='jumbotron'>
-      <h1>Welcome to Vili</h1>
-      <p>Please log in to view your applications.</p>
-      <p><a className='btn btn-primary btn-lg' href='/login' role='button'>Login</a></p>
-    </div>
+    return (
+      <div className='jumbotron'>
+        <h1>Welcome to Vili</h1>
+        <p>Please log in to view your applications.</p>
+        <p><a className='btn btn-primary btn-lg' href='/login' role='button'>Login</a></p>
+      </div>
+    )
   }
 
   render () {
@@ -42,4 +54,5 @@ export class Home extends React.Component {
     }
     return this.renderEnvs
   }
+
 }

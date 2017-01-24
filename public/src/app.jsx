@@ -6,16 +6,24 @@ import { syncHistoryWithStore } from 'react-router-redux'
 
 import configureStore from './store'
 import router from './router'
-import style from './less/app.less'
-style.use()
+import initFirebase from './lib/firebase'
+
+import './less/app.less'
 
 window.addEventListener('DOMContentLoaded', () => {
-  // const store = configureStore({ session: window.appConfig.user })
-  const store = configureStore({})
+  let initialState = {}
+  if (window.appConfig) {
+    initialState.user = window.appConfig.user
+    initialState.defaultEnv = window.appConfig.defaultEnv
+    initialState.envs = window.appConfig.envs
+    initialState.firebase = initFirebase(window.appConfig.firebase)
+  }
+
+  const store = configureStore(initialState)
   const history = syncHistoryWithStore(browserHistory, store)
 
   ReactDOM.render(
     <Provider store={store}>
       {router(history)}
-    </Provider>, document.body)
+    </Provider>, document.getElementById('app'))
 })

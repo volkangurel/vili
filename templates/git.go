@@ -86,7 +86,7 @@ func (s *gitService) Deployment(env, branch, name string) (Template, error) {
 
 // Migrations returns the migrations for the given environment
 func (s *gitService) Migrations(env, branch string) (Template, error) {
-	fileContent, err := s.getContents(env, branch, "migrations.yaml")
+	fileContent, err := s.getContents(env, branch, "pods/migrations.yaml") // TODO make this migrations.yaml
 	if err != nil {
 		return "", err
 	}

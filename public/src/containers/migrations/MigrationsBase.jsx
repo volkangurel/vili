@@ -8,7 +8,7 @@ const tabs = {
   'runs': 'Runs'
 }
 
-export class JobBase extends React.Component {
+export default class MigrationsBase extends React.Component {
   constructor (props) {
     super(props)
     this.state = {
