@@ -12,10 +12,11 @@ const (
 
 // User is the user or robot making the request
 type User struct {
-	Email     string `json:"email"`
-	Username  string `json:"username"`
-	FirstName string `json:"firstName"`
-	LastName  string `json:"lastName"`
+	Email     string   `json:"email"`
+	Username  string   `json:"username"`
+	FirstName string   `json:"firstName"`
+	LastName  string   `json:"lastName"`
+	Groups    []string `json:"groups"`
 }
 
 var service Service

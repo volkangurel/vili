@@ -1,5 +1,6 @@
 import React from 'react'
 import { connect } from 'react-redux'
+import { Link } from 'react-router'
 import _ from 'underscore'
 
 import displayTime from '../../lib/displayTime'
@@ -10,7 +11,6 @@ import { getDeployments } from '../../actions/deployments'
 
 function mapStateToProps (state) {
   return {
-    app: state.app.toJS(),
     deployments: state.deployments.toJS()
   }
 }
@@ -36,6 +36,8 @@ export default class DeploymentRollouts extends React.Component {
           time={new Date(replicaSet.metadata.creationTimestamp)}
           replicas={replicaSet.status.replicas}
           deploymentRevision={deploymentRevision}
+          env={this.props.params.env}
+          deployment={this.props.params.deployment}
         />
       )
     }
@@ -81,7 +83,7 @@ class Row extends React.Component {
   }
 
   render () {
-    const { revision, tag, time, replicas, deploymentRevision } = this.props
+    const { revision, tag, time, replicas, deploymentRevision, env, deployment } = this.props
     var className = ''
     if (revision === deploymentRevision) {
       className = 'success'
@@ -90,7 +92,7 @@ class Row extends React.Component {
     }
     return (
       <tr className={className}>
-        <td data-column='revision'>{revision}</td>
+        <td data-column='revision'><Link to={`/${env}/deployments/${deployment}/rollouts/${revision}`}>{revision}</Link></td>
         <td data-column='tag'>{tag}</td>
         <td data-column='time'>{displayTime(time)}</td>
         <td data-column='replicas'>{replicas}</td>

@@ -65,6 +65,9 @@ export default class HttpClient {
   }
 
   send (method, opts) {
+    if (!opts.body && opts.json) {
+      opts.body = JSON.stringify(opts.json)
+    }
     const o = {
       url: this.baseURL + opts.url,
       method: method,

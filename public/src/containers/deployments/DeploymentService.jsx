@@ -1,57 +1,22 @@
 import React from 'react'
-import { Promise } from 'bluebird'
-import { viliApi } from '../../lib'
+import { connect } from 'react-redux'
 import Loading from '../../components/Loading'
+import { activateDeploymentTab } from '../../actions/app'
+import { getDeployments } from '../../actions/deployments'
 
+function mapStateToProps (state) {
+  return {
+    deployments: state.deployments.toJS()
+  }
+}
+
+@connect(mapStateToProps)
 export default class DeploymentService extends React.Component {
   constructor (props) {
     super(props)
     this.state = {}
 
-    this.loadData = this.loadData.bind(this)
     this.clickCreateService = this.clickCreateService.bind(this)
-  }
-
-  render () {
-    if (!this.state.app) {
-      return <Loading />
-    }
-    if (!this.state.app.service) {
-      return (
-        <div id='service'>
-          <div className='alert alert-warning' role='alert'>No Service Defined</div>
-          <div><button className='btn btn-success' onClick={this.clickCreateService}>Create Service</button></div>
-        </div>
-      )
-    } else {
-      return (
-        <div id='service'>
-                    IP: {this.state.app.service.spec.clusterIP}
-        </div>
-      )
-    }
-  }
-
-  loadData () {
-    var self = this
-    Promise.props({
-      app: viliApi.apps.get(this.props.params.env, this.props.params.app, {fields: 'service'})
-    }).then(function (state) {
-      self.setState(state)
-    })
-  }
-
-  componentDidMount () {
-    this.props.activateTab('service')
-    this.loadData()
-  }
-
-  componentDidUpdate (prevProps) {
-    if (this.props != prevProps) {
-      this.state = {}
-      this.forceUpdate()
-      this.loadData()
-    }
   }
 
   clickCreateService (event) {
@@ -60,5 +25,39 @@ export default class DeploymentService extends React.Component {
     viliApi.services.create(this.props.params.env, this.props.params.app).then(function () {
       self.loadData()
     })
+  }
+
+  componentDidMount () {
+    this.props.dispatch(activateDeploymentTab('service'))
+    this.props.dispatch(getDeployments(this.props.params.env, this.props.params.deployment))
+  }
+
+  componentDidUpdate (prevProps) {
+    if (this.props.params !== prevProps.params) {
+      this.props.dispatch(getDeployments(this.props.params.env, this.props.params.deployment))
+    }
+  }
+
+  render () {
+    const deployments = this.props.deployments
+    const deployment = (deployments.envs &&
+      deployments.envs[this.props.params.env] &&
+      deployments.envs[this.props.params.env][this.props.params.deployment])
+    if (deployments.isFetching || !deployment) {
+      return (<Loading />)
+    }
+    if (!deployment.service) {
+      return (
+        <div id='service'>
+          <div className='alert alert-warning' role='alert'>No Service Defined</div>
+          <div><button className='btn btn-success' onClick={this.clickCreateService}>Create Service</button></div>
+        </div>
+      )
+    }
+    return (
+      <div id='service'>
+        IP: {deployment.service.spec.clusterIP}
+      </div>
+    )
   }
 }

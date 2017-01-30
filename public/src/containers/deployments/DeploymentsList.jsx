@@ -8,6 +8,7 @@ import _ from 'underscore'
 import displayTime from '../../lib/displayTime'
 import Table from '../../components/Table'
 import Loading from '../../components/Loading'
+import { activateNav } from '../../actions/app'
 import { getDeployments } from '../../actions/deployments'
 
 class Row extends React.Component {
@@ -89,6 +90,7 @@ export default class DeploymentsList extends React.Component {
   }
 
   componentDidMount () {
+    this.props.dispatch(activateNav('deployments'))
     this.props.dispatch(getDeployments(this.props.params.env))
   }
 

@@ -2,7 +2,7 @@ import React, { PropTypes } from 'react'
 import { connect } from 'react-redux'
 import { Link } from 'react-router'
 
-import { activateNav } from '../../actions/deployments'
+import { activateNav } from '../../actions/app'
 
 function mapStateToProps (state) {
   return {

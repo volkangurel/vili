@@ -19,6 +19,7 @@ import DeploymentSpec from './containers/deployments/DeploymentSpec'
 import DeploymentPods from './containers/deployments/DeploymentPods'
 import DeploymentService from './containers/deployments/DeploymentService'
 import DeploymentRollouts from './containers/deployments/DeploymentRollouts'
+import DeploymentRollout from './containers/deployments/DeploymentRollout'
 // pods
 import { PodsList, Pod } from './pods'
 // nodes
@@ -49,6 +50,7 @@ export default function (history) {
           <Route path='deployments/:deployment' component={DeploymentBase}>
             <IndexRoute component={Deployment} />
             <Route path='rollouts' component={DeploymentRollouts} />
+            <Route path='rollouts/:rollout' component={DeploymentRollout} />
             <Route path='pods' component={DeploymentPods} />
             <Route path='service' component={DeploymentService} />
             <Route path='spec' component={DeploymentSpec} />

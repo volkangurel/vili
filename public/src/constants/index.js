@@ -8,3 +8,6 @@ export const DELETE_ENV = 'DELETE_ENV'
 // deployments
 export const GET_DEPLOYMENTS = 'GET_DEPLOYMENTS'
 export const SET_DEPLOYMENTS = 'SET_DEPLOYMENTS'
+// deployment pods
+export const GET_DEPLOYMENT_PODS = 'GET_DEPLOYMENT_PODS'
+export const SET_DEPLOYMENT_PODS = 'SET_DEPLOYMENT_PODS'

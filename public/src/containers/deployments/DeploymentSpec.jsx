@@ -13,6 +13,17 @@ function mapStateToProps (state) {
 @connect(mapStateToProps)
 export default class DeploymentSpec extends React.Component {
 
+  componentDidMount () {
+    this.props.dispatch(activateDeploymentTab('spec'))
+    this.props.dispatch(getDeployments(this.props.params.env, this.props.params.deployment))
+  }
+
+  componentDidUpdate (prevProps) {
+    if (this.props.params !== prevProps.params) {
+      this.props.dispatch(getDeployments(this.props.params.env, this.props.params.deployment))
+    }
+  }
+
   render () {
     const deployments = this.props.deployments
     const deployment = (deployments.envs &&
@@ -30,17 +41,6 @@ export default class DeploymentSpec extends React.Component {
         </div>
       </div>
     )
-  }
-
-  componentDidMount () {
-    this.props.dispatch(activateDeploymentTab('spec'))
-    this.props.dispatch(getDeployments(this.props.params.env, this.props.params.deployment))
-  }
-
-  componentDidUpdate (prevProps) {
-    if (this.props.params !== prevProps.params) {
-      this.props.dispatch(getDeployments(this.props.params.env, this.props.params.deployment))
-    }
   }
 
 }

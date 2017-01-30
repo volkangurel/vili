@@ -1,9 +1,9 @@
 import * as Constants from '../constants'
 
-export function getDeployments (env, name, qs) {
+export function getPods (env, name, qs) {
   return async function (dispatch, getState, api) {
-    dispatch({ type: Constants.GET_DEPLOYMENTS })
-    const { results, error } = await api.deployments.get(env, name, qs)
+    dispatch({ type: Constants.GET_PODS })
+    const { results, error } = await api.pods.get(env, name, qs)
 
     if (error) {
       // TODO
@@ -14,14 +14,14 @@ export function getDeployments (env, name, qs) {
       return false
     }
 
-    dispatch(setDeployments(env, name, results))
+    dispatch(setPods(env, name, results))
     return true
   }
 }
 
-export function scaleDeployment (env, name, replicas) {
+export function deletePod (env, name) {
   return async function (dispatch, getState, api) {
-    const { error } = await api.deployments.scale(env, name, replicas)
+    const { error } = await api.pods.del(env, name)
 
     if (error) {
       // TODO
@@ -35,18 +35,18 @@ export function scaleDeployment (env, name, replicas) {
   }
 }
 
-export function setDeployments (env, name, results) {
-  var deployments = {}
+export function setPods (env, name, results) {
+  var pods = {}
   if (name) {
-    deployments[name] = results
+    pods[name] = results
   } else {
-    deployments = results.deployments
+    pods = results.pods
   }
   return {
-    type: Constants.SET_DEPLOYMENTS,
+    type: Constants.SET_PODS,
     payload: {
       env: env,
-      deployments: deployments
+      pods: pods
     }
   }
 }

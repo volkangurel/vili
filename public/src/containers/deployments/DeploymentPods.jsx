@@ -1,53 +1,100 @@
+/* global prompt */
 import React from 'react'
+import { connect } from 'react-redux'
 import { Button, ButtonToolbar } from 'react-bootstrap'
 import { Link } from 'react-router'
 import _ from 'underscore'
-import { Promise } from 'bluebird'
-import { viliApi, displayTime } from '../../lib'
+import displayTime from '../../lib/displayTime'
 import Table from '../../components/Table'
-import Loading from '../../components/Loading'
+import { activateDeploymentTab } from '../../actions/app'
+import { scaleDeployment } from '../../actions/deployments'
+import { getDeploymentPods } from '../../actions/deploymentPods'
+import { deletePod } from '../../actions/pods'
 
+function mapStateToProps (state) {
+  return {
+    deploymentPods: state.deploymentPods.toJS()
+  }
+}
+
+@connect(mapStateToProps)
 export default class DeploymentPods extends React.Component {
   constructor (props) {
     super(props)
-    this.state = {}
-    this.loadData = this.loadData.bind(this)
     this.scale = this.scale.bind(this)
+    this.deletePod = this.deletePod.bind(this)
+  }
+
+  loadData = () => {
+    this.props.dispatch(getDeploymentPods(this.props.params.env, this.props.params.deployment))
+  }
+
+  scale () {
+    var replicas = prompt('Enter the number of replicas to scale to')
+    if (!replicas) {
+      return
+    }
+    replicas = parseInt(replicas)
+    if (_.isNaN(replicas)) {
+      return
+    }
+    this.props.dispatch(scaleDeployment(this.props.params.env, this.props.params.deployment, replicas))
+  }
+
+  deletePod (pod) {
+    this.props.dispatch(deletePod(this.props.params.env, pod))
+  }
+
+  componentDidMount () {
+    this.props.dispatch(activateDeploymentTab('pods'))
+    this.loadData()
+    this.dataInterval = setInterval(this.loadData, 3000)
+  }
+
+  componentDidUpdate (prevProps) {
+    if (this.props.params !== prevProps.params) {
+      this.loadData()
+    }
+  }
+
+  componentWillUnmount () {
+    if (this.dataInterval) {
+      clearInterval(this.dataInterval)
+    }
   }
 
   render () {
-    if (!this.state.appPods) {
-      return <Loading />
-    }
+    const deploymentPods = this.props.deploymentPods
+    const pods = (deploymentPods.envs &&
+      deploymentPods.envs[this.props.params.env] &&
+      deploymentPods.envs[this.props.params.env][this.props.params.deployment]) ||
+      []
     var self = this
     var columns = _.union([
-            {title: 'Name', key: 'name'},
-            {title: 'Host', key: 'host'},
-            {title: 'Deployment', key: 'deployment'},
-            {title: 'Phase', key: 'phase'},
-            {title: 'Ready', key: 'ready'},
-            {title: 'Pod IP', key: 'pod_ip'},
-            {title: 'Created', key: 'created'},
-            {title: 'Actions', key: 'actions'}
+      {title: 'Name', key: 'name'},
+      {title: 'Host', key: 'host'},
+      {title: 'Phase', key: 'phase'},
+      {title: 'Ready', key: 'ready'},
+      {title: 'Pod IP', key: 'pod_ip'},
+      {title: 'Created', key: 'created'},
+      {title: 'Actions', key: 'actions'}
     ])
 
-    var rows = _.map(this.state.appPods.items, function (pod) {
-      var deployment = pod.metadata.labels.deployment
+    var rows = _.map(pods, function (pod) {
       var ready = pod.status.phase === 'Running' &&
                 _.every(pod.status.containerStatuses, function (cs) {
                   return cs.ready
                 })
 
-      var nameLink = <Link to={`/${self.props.params.env}/pods/${pod.metadata.name}`}>{pod.metadata.name}</Link>
-      var hostLink = <Link to={`/${self.props.params.env}/nodes/${pod.spec.nodeName}`}>{pod.spec.nodeName}</Link>
-      var deploymentLink = <Link to={`/${self.props.params.env}/apps/${self.props.params.app}/deployments/${deployment}`}>{deployment}</Link>
-      var actions = [
+      const nameLink = (<Link to={`/${self.props.params.env}/pods/${pod.metadata.name}`}>{pod.metadata.name}</Link>)
+      const hostLink = (<Link to={`/${self.props.params.env}/nodes/${pod.spec.nodeName}`}>{pod.spec.nodeName}</Link>)
+      var actions = (
         <Button onClick={self.deletePod.bind(self, pod.metadata.name)} bsStyle='danger' bsSize='xs'>Delete</Button>
-      ]
+      )
       return {
         name: nameLink,
         host: hostLink,
-        deployment: deploymentLink,
+        // deployment: deploymentLink,
         phase: pod.status.phase,
         ready: ready ? String.fromCharCode('10003') : '',
         pod_ip: pod.status.podIP,
@@ -64,59 +111,6 @@ export default class DeploymentPods extends React.Component {
         <Table columns={columns} rows={rows} />
       </div>
     )
-  }
-
-  loadData () {
-    var self = this
-    if (this.dataInterval) {
-      clearInterval(this.dataInterval)
-    }
-    var loader = function () {
-      Promise.props({
-        appPods: viliApi.pods.get(
-                    self.props.params.env,
-                    {labelSelector: 'app=' + self.props.params.app})
-      }).then(function (state) {
-        self.setState(state)
-      })
-    }
-    loader()
-    this.dataInterval = setInterval(loader, 3000)
-  }
-
-  componentDidMount () {
-    this.props.activateTab('pods')
-    this.loadData()
-  }
-
-  componentDidUpdate (prevProps) {
-    if (this.props != prevProps) {
-      this.state = {}
-      this.forceUpdate()
-      this.loadData()
-    }
-  }
-
-  componentWillUnmount () {
-    if (this.dataInterval) {
-      clearInterval(this.dataInterval)
-    }
-  }
-
-  scale () {
-    var replicas = prompt('Enter the number of replicas to scale to')
-    if (!replicas) {
-      return
-    }
-    replicas = parseInt(replicas)
-    if (_.isNaN(replicas)) {
-      return
-    }
-    viliApi.apps.scale(this.props.params.env, this.props.params.app, replicas)
-  }
-
-  deletePod (pod) {
-    viliApi.pods.delete(this.props.params.env, pod)
   }
 
 }

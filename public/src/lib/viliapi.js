@@ -1,146 +1,134 @@
 import HttpClient from './HttpClient'
 import _ from 'underscore'
 
-const httpClient = new HttpClient()
+const httpClient = new HttpClient('/api/v1/')
 
-const apiUtils = {
-  async getDeployments (env, name, qs) {
-    if (_.isObject(name)) {
-      qs = name
-      name = null
+export { httpClient }
+export default {
+
+  deployments: {
+    async get (env, name, qs) {
+      if (_.isObject(name)) {
+        qs = name
+        name = null
+      }
+      if (name) {
+        return await httpClient.get({ url: 'envs/' + env + '/deployments/' + name, query: qs })
+      }
+      return await httpClient.get({ url: 'envs/' + env + '/deployments', query: qs })
+    },
+
+    async scale (env, name, replicas) {
+      return await httpClient.put({ url: 'envs/' + env + '/deployments/' + name + '/scale', json: { replicas: replicas } })
     }
-    if (name) {
-      return await httpClient.get({ url: '/api/v1/envs/' + env + '/deployments/' + name, query: qs })
-    }
-    return await httpClient.get({ url: '/api/v1/envs/' + env + '/deployments', query: qs })
   },
 
-  async scaleDeployment (env, name, qs) {
-    return await httpClient.put({ url: '/api/v1/envs/' + env + '/deployments/' + name + '/scale' })
+  migrations: {
+    async get (env, qs) {
+      return await httpClient.get({ url: 'envs/' + env + '/migrations', query: qs })
+    }
+  },
+
+  nodes: {
+    async get (env, name, qs) {
+      if (_.isObject(name)) {
+        qs = name
+        name = null
+      }
+      if (name) {
+        return await httpClient.get({ url: 'envs/' + env + '/nodes/' + name, query: qs })
+      }
+      return await httpClient.get({ url: 'envs/' + env + '/nodes', query: qs })
+    },
+
+    async setSchedulable (env, name, onOff) {
+      return await httpClient.put({ url: 'envs/' + env + '/nodes/' + name + '/' + onOff.toLowerCase() })
+    }
+  },
+
+  pods: {
+    async get (env, name, qs) {
+      if (_.isObject(name)) {
+        qs = name
+        name = null
+      }
+      if (name) {
+        return await httpClient.get({ url: 'envs/' + env + '/pods/' + name, query: qs })
+      }
+      return await httpClient.get({ url: 'envs/' + env + '/pods', query: qs })
+    },
+    async del (env, name) {
+      return await httpClient.delete({ url: 'envs/' + env + '/pods/' + name })
+    }
+  },
+
+  services: {
+    async create (env, app) {
+      return await httpClient.post({ url: 'envs/' + env + '/apps/' + app + '/service' })
+    }
+  },
+
+  rollouts: {
+    async create (env, deployment, spec) {
+      const qs = {}
+      if (spec.trigger) {
+        qs.trigger = 'true'
+      }
+      return await httpClient.post({ url: 'envs/' + env + '/deployments/' + deployment + '/rollouts', qs: qs, json: spec })
+    },
+//    async setRollout (env, deployment, id, rollout) {
+//      return await httpClient.put({ url: 'envs/' + env + '/deployments/' + deployment + '/rollouts/' + id + '/rollout', json: rollout})
+//    },
+    async resume (env, deployment, id) {
+      return await httpClient.post({ url: 'envs/' + env + '/deployments/' + deployment + '/rollouts/' + id + '/resume' })
+    },
+    async pause (env, deployment, id) {
+      return await httpClient.post({ url: 'envs/' + env + '/deployments/' + deployment + '/rollouts/' + id + '/pause' })
+    },
+    async rollback (env, deployment, id) {
+      return await httpClient.post({ url: 'envs/' + env + '/deployments/' + deployment + '/rollouts/' + id + '/rollback' })
+    }
+  },
+
+  runs: {
+    async create (env, job, spec) {
+      const qs = {}
+      if (spec.trigger) {
+        qs.trigger = 'true'
+      }
+      return await httpClient.post({ url: 'envs/' + env + '/jobs/' + job + '/runs', qs: qs, json: spec })
+    },
+    async start (env, job, id) {
+      return await httpClient.post({ url: 'envs/' + env + '/jobs/' + job + '/runs/' + id + '/start' })
+    },
+    async terminate (env, job, id) {
+      return await httpClient.post({ url: 'envs/' + env + '/jobs/' + job + '/runs/' + id + '/terminate' })
+    }
+  },
+
+  releases: {
+    async create (name, tag, spec) {
+      return await httpClient.post({ url: 'releases/' + name + '/' + tag, json: spec })
+    },
+    async delete (name, tag) {
+      return await httpClient.delete({ url: 'releases/' + name + '/' + tag })
+    }
+  },
+
+  environments: {
+    async create (spec) {
+      return await httpClient.post({ url: 'environments', json: spec })
+    },
+    async delete (name) {
+      return await httpClient.delete({ url: 'environments/' + name })
+    },
+    async branches () {
+      return await httpClient.get({ url: 'envBranches' })
+    },
+    async spec (name, branch) {
+      const qs = { name: name, branch: branch }
+      return await httpClient.get({ url: 'envSpec', qs: qs })
+    }
   }
 
 }
-
-export { httpClient }
-export default apiUtils
-
-// class ViliApi {
-//   constructor (opts) {
-//     this.opts = opts
-
-//     this.jobs = {
-//       get: function (env, name, qs) {
-//         if (_.isObject(name)) {
-//           qs = name
-//           name = null
-//         }
-//         if (name) {
-//           return makeGetRequest('/envs/' + env + '/jobs/' + name, qs)
-//         }
-//         return makeGetRequest('/envs/' + env + '/jobs', qs)
-//       }
-//     }
-
-//     this.nodes = {
-//       get: function (env, name, qs) {
-//         if (_.isObject(name)) {
-//           qs = name
-//           name = null
-//         }
-//         if (name) {
-//           return makeGetRequest('/envs/' + env + '/nodes/' + name, qs)
-//         }
-//         return makeGetRequest('/envs/' + env + '/nodes', qs)
-//       },
-//       setSchedulable: function (env, name, onOff) {
-//         return makePutRequest('/envs/' + env + '/nodes/' + name + '/' + onOff.toLowerCase())
-//       }
-//     }
-
-//     this.pods = {
-//       get: function (env, name, qs) {
-//         if (_.isObject(name)) {
-//           qs = name
-//           name = null
-//         }
-//         if (name) {
-//           return makeGetRequest('/envs/' + env + '/pods/' + name, qs)
-//         }
-//         return makeGetRequest('/envs/' + env + '/pods', qs)
-//       },
-//       delete: function (env, name) {
-//         return makeDeleteRequest('/envs/' + env + '/pods/' + name)
-//       }
-//     }
-
-//     this.services = {
-//       create: function (env, app) {
-//         return makePostRequest('/envs/' + env + '/apps/' + app + '/service')
-//       }
-//     }
-
-//     this.deployments = {
-//       create: function (env, app, spec) {
-//         var qs = ''
-//         if (spec.trigger) {
-//           qs = '?trigger=true'
-//         }
-//         return makePostRequest('/envs/' + env + '/apps/' + app + '/deployments' + qs, spec)
-//       },
-//       setRollout: function (env, app, id, rollout) {
-//         return makePutRequest('/envs/' + env + '/apps/' + app + '/deployments/' + id + '/rollout', rollout)
-//       },
-//       resume: function (env, app, id) {
-//         return makePostRequest('/envs/' + env + '/apps/' + app + '/deployments/' + id + '/resume')
-//       },
-//       pause: function (env, app, id) {
-//         return makePostRequest('/envs/' + env + '/apps/' + app + '/deployments/' + id + '/pause')
-//       },
-//       rollback: function (env, app, id) {
-//         return makePostRequest('/envs/' + env + '/apps/' + app + '/deployments/' + id + '/rollback')
-//       }
-//     }
-
-//     this.runs = {
-//       create: function (env, job, spec) {
-//         var qs = ''
-//         if (spec.trigger) {
-//           qs = '?trigger=true'
-//         }
-//         return makePostRequest('/envs/' + env + '/jobs/' + job + '/runs' + qs, spec)
-//       },
-//       start: function (env, job, id) {
-//         return makePostRequest('/envs/' + env + '/jobs/' + job + '/runs/' + id + '/start')
-//       },
-//       terminate: function (env, job, id) {
-//         return makePostRequest('/envs/' + env + '/jobs/' + job + '/runs/' + id + '/terminate')
-//       }
-//     }
-
-//     this.releases = {
-//       create: function (name, tag, spec) {
-//         return makePostRequest('/releases/' + name + '/' + tag, spec)
-//       },
-//       delete: function (name, tag) {
-//         return makeDeleteRequest('/releases/' + name + '/' + tag)
-//       }
-//     }
-
-//     this.environments = {
-//       create: function (spec) {
-//         return makePostRequest('/environments', spec)
-//       },
-//       delete: function (name) {
-//         return makeDeleteRequest('/environments/' + name)
-//       },
-//       branches: function () {
-//         return makeGetRequest('/envBranches')
-//       },
-//       spec: function (name, branch) {
-//         return makeGetRequest('/envSpec?name=' + name + '&branch=' + branch)
-//       }
-//     }
-//   }
-// }
-
-// export default new ViliApi()
