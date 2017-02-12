@@ -16,6 +16,17 @@ type LogMessage struct {
 	Level   string    `json:"level"`
 }
 
+func parseQueryFields(c *echo.Context) map[string]bool {
+	queryFields := make(map[string]bool)
+	requestFields := c.Request().URL.Query().Get("fields")
+	if requestFields != "" {
+		for _, field := range strings.Split(requestFields, ",") {
+			queryFields[field] = true
+		}
+	}
+	return queryFields
+}
+
 func getPortFromDeployment(deployment *v1beta1.Deployment) (int32, error) {
 	containers := deployment.Spec.Template.Spec.Containers
 	if len(containers) == 0 {

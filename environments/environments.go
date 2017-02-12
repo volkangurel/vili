@@ -22,8 +22,8 @@ type Environment struct {
 	Protected   bool     `json:"protected,omitempty"`
 	Prod        bool     `json:"prod,omitempty"`
 	Approval    bool     `json:"approval,omitempty"`
-	Migrations  bool     `json:"migrations,omitempty"`
 	Deployments []string `json:"deployments"`
+	Jobs        []string `json:"jobs,omitempty"`
 }
 
 // Init initializes the global environments list
@@ -148,7 +148,7 @@ func RefreshEnvs() error {
 		wg.Add(1)
 		go func(name, branch string) {
 			defer wg.Done()
-			migrations, err := templates.Migrations(name, branch)
+			jobs, err := templates.Pods(name, branch)
 			if err != nil {
 				log.Error(err)
 				return
@@ -160,8 +160,8 @@ func RefreshEnvs() error {
 			}
 			mapLock.Lock()
 			e := newEnvs[name]
-			e.Migrations = migrations != ""
 			e.Deployments = deployments
+			e.Jobs = jobs
 			newEnvs[name] = e
 			mapLock.Unlock()
 		}(env.Name, env.Branch)

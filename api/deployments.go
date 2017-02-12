@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"sort"
 	"strconv"
-	"strings"
 	"sync"
 
 	"github.com/airware/vili/docker"
@@ -95,14 +94,7 @@ type DeploymentResponse struct {
 func deploymentHandler(c *echo.Context) error {
 	env := c.Param("env")
 	deployment := c.Param("deployment")
-
-	requestFields := c.Request().URL.Query().Get("fields")
-	queryFields := make(map[string]bool)
-	if requestFields != "" {
-		for _, field := range strings.Split(requestFields, ",") {
-			queryFields[field] = true
-		}
-	}
+	queryFields := parseQueryFields(c)
 
 	environment, err := environments.Get(env)
 	if err != nil {
@@ -200,9 +192,6 @@ func deploymentCreateServiceHandler(c *echo.Context) error {
 
 	failed := false
 
-	// repository
-	var waitGroup sync.WaitGroup
-
 	var deploymentTemplate templates.Template
 	var currentService *v1.Service
 
@@ -211,6 +200,7 @@ func deploymentCreateServiceHandler(c *echo.Context) error {
 		return err
 	}
 
+	var waitGroup sync.WaitGroup
 	// deploymentTemplate
 	waitGroup.Add(1)
 	go func() {

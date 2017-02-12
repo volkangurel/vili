@@ -84,9 +84,26 @@ func (s *gitService) Deployment(env, branch, name string) (Template, error) {
 	return Template(fileContent), nil
 }
 
-// Migrations returns the migrations for the given environment
-func (s *gitService) Migrations(env, branch string) (Template, error) {
-	fileContent, err := s.getContents(env, branch, "pods/migrations.yaml") // TODO make this migrations.yaml
+// Pods returns a list of pods for the given environment
+func (s *gitService) Pods(env, branch string) ([]string, error) {
+	directoryContent, err := s.listDirectory(env, branch, "pods")
+	if err != nil {
+		return nil, err
+	}
+	var pods []string
+	for _, filePath := range directoryContent {
+		parts := strings.Split(filePath, ".")
+		if len(parts) != 2 || parts[1] != "yaml" {
+			continue
+		}
+		pods = append(pods, parts[0])
+	}
+	return pods, nil
+}
+
+// Pod returns a pod for the given environment
+func (s *gitService) Pod(env, branch, name string) (Template, error) {
+	fileContent, err := s.getContents(env, branch, "pods/"+name+".yaml")
 	if err != nil {
 		return "", err
 	}

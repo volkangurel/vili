@@ -41,39 +41,6 @@ const (
 	rolloutPollPeriod = 200 * time.Millisecond
 )
 
-// Rollout represents a single deployment of an image for any app
-// TODO: support MaxUnavailable and MaxSurge for rolling updates
-type Rollout struct {
-	ID         string    `json:"id"`
-	Env        string    `json:"env"`
-	Deployment string    `json:"deployment"`
-	Branch     string    `json:"branch"`
-	Tag        string    `json:"tag"`
-	Time       time.Time `json:"time"`
-	Username   string    `json:"username"`
-	State      string    `json:"state"`
-
-	// Clock        *Clock `json:"clock"`
-	// OriginalPods []Pod  `json:"originalPods"`
-	// FromPods     []Pod  `json:"fromPods"`
-	// FromTag      string `json:"fromTag"`
-	// FromUID      string `json:"fromUid"`
-
-	// ToPods []Pod  `json:"toPods"`
-	// ToUID  string `json:"toUid"`
-
-	db *firego.Firebase
-}
-
-// Pod is a summary of the state of a kubernetes pod
-type Pod struct {
-	Name    string    `json:"name"`
-	Created time.Time `json:"created"`
-	Phase   string    `json:"phase"`
-	Ready   bool      `json:"ready"`
-	Host    string    `json:"host"`
-}
-
 func rolloutCreateHandler(c *echo.Context) error {
 	env := c.Param("env")
 	deploymentName := c.Param("deployment")
@@ -119,6 +86,39 @@ func rolloutCreateHandler(c *echo.Context) error {
 // 	}
 // 	return c.JSON(http.StatusOK, rollout)
 // }
+
+// Rollout represents a single deployment of an image for any app
+// TODO: support MaxUnavailable and MaxSurge for rolling updates
+type Rollout struct {
+	ID         string    `json:"id"`
+	Env        string    `json:"env"`
+	Deployment string    `json:"deployment"`
+	Branch     string    `json:"branch"`
+	Tag        string    `json:"tag"`
+	Time       time.Time `json:"time"`
+	Username   string    `json:"username"`
+	State      string    `json:"state"`
+
+	// Clock        *Clock `json:"clock"`
+	// OriginalPods []Pod  `json:"originalPods"`
+	// FromPods     []Pod  `json:"fromPods"`
+	// FromTag      string `json:"fromTag"`
+	// FromUID      string `json:"fromUid"`
+
+	// ToPods []Pod  `json:"toPods"`
+	// ToUID  string `json:"toUid"`
+
+	db *firego.Firebase // TODO remove firebase
+}
+
+// Pod is a summary of the state of a kubernetes pod
+type Pod struct {
+	Name    string    `json:"name"`
+	Created time.Time `json:"created"`
+	Phase   string    `json:"phase"`
+	Ready   bool      `json:"ready"`
+	Host    string    `json:"host"`
+}
 
 // Init initializes a deployment, checks to make sure it is valid, and writes the deployment
 // data to firebase
@@ -234,9 +234,6 @@ func (r *Rollout) createNewDeployment(fromDeployment *v1beta1.Deployment) (newDe
 	}
 
 	err = r.addMessage(fmt.Sprintf("Rollout for tag %s and branch %s created by %s", r.Tag, r.Branch, r.Username), "info")
-	if err != nil {
-		return
-	}
 	return
 }
 

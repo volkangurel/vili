@@ -30,9 +30,9 @@ func AddHandlers(s *server.Server) {
 	// s.Echo().Put(envPrefix+"deployments/:deployment/rollouts/:rollout/edit", envMiddleware(rolloutEditHandler))
 	// s.Echo().Post(envPrefix+"deployments/:deployment/rollouts/:rollout/:action", envMiddleware(rolloutActionHandler))
 
-	// migrations
-	s.Echo().Post(envPrefix+"migrations", envMiddleware(migrationCreateHandler))
-	s.Echo().Post(envPrefix+"migrations/:migration/:action", envMiddleware(migrationActionHandler))
+	// jobs
+	s.Echo().Post(envPrefix+"jobs/:job/runs", envMiddleware(jobRunCreateHandler))
+	// s.Echo().Post(envPrefix+"jobs/:job/runs/:pod/:action", envMiddleware(jobRunActionHandler))
 
 	// nodes
 	s.Echo().Get(envPrefix+"nodes", envMiddleware(nodesHandler))
