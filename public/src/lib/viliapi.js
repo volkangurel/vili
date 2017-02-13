@@ -57,6 +57,19 @@ export default {
       }
       return await httpClient.get({ url: 'envs/' + env + '/pods', query: qs })
     },
+    watch (handler, env, name, qs) {
+      if (_.isObject(name)) {
+        qs = name
+        name = null
+      } else if (!qs) {
+        qs = {}
+      }
+      qs.watch = 'true'
+      if (name) {
+        return httpClient.ws({ url: 'envs/' + env + '/pods/' + name, qs: qs, messageHandler: handler })
+      }
+      return httpClient.ws({ url: 'envs/' + env + '/pods', qs: qs, messageHandler: handler })
+    },
     async del (env, name) {
       return await httpClient.delete({ url: 'envs/' + env + '/pods/' + name })
     }

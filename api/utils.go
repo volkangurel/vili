@@ -3,10 +3,12 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
 	"github.com/airware/vili/kube/extensions/v1beta1"
+	echo "gopkg.in/labstack/echo.v1"
 )
 
 // LogMessage is a wrapper for log messages in the db
@@ -25,6 +27,17 @@ func parseQueryFields(c *echo.Context) map[string]bool {
 		}
 	}
 	return queryFields
+}
+
+func filterQueryFields(c *echo.Context, params []string) *url.Values {
+	query := &url.Values{}
+	for _, param := range params {
+		val := c.Request().URL.Query().Get(param)
+		if val != "" {
+			query.Add(param, val)
+		}
+	}
+	return query
 }
 
 func getPortFromDeployment(deployment *v1beta1.Deployment) (int32, error) {

@@ -39,7 +39,7 @@ func jobGetHandler(c *echo.Context) error {
 		waitGroup.Add(1)
 		go func() {
 			defer waitGroup.Done()
-			images, err := docker.GetRepository(podsImageName, environment.RepositoryBranches())
+			images, err := docker.GetRepository(job, environment.RepositoryBranches())
 			if err != nil {
 				log.Error(err)
 				failed = true

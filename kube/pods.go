@@ -3,6 +3,7 @@ package kube
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
 	"strings"
@@ -10,10 +11,11 @@ import (
 	"github.com/airware/vili/kube/extensions/v1beta1"
 	"github.com/airware/vili/kube/unversioned"
 	"github.com/airware/vili/kube/v1"
+	"github.com/airware/vili/log"
 )
 
 // Pods is the default pods service instance
-var Pods = &PodsService{}
+var Pods = new(PodsService)
 
 // PodsService is the kubernetes service to interace with pods
 type PodsService struct {
@@ -25,12 +27,8 @@ func (s *PodsService) List(env string, query *url.Values) (*v1.PodList, *unversi
 	if err != nil {
 		return nil, nil, invalidEnvError(env)
 	}
-	resp := &v1.PodList{}
-	path := "pods"
-	if query != nil {
-		path += "?" + query.Encode()
-	}
-	status, err := client.makeRequest("GET", path, nil, resp)
+	resp := new(v1.PodList)
+	status, err := client.unmarshalRequest("GET", "pods", query, nil, resp)
 	if status != nil || err != nil {
 		return nil, status, err
 	}
@@ -43,7 +41,7 @@ func (s *PodsService) ListForController(env string, controller *v1.ReplicationCo
 	for k, v := range controller.Spec.Selector {
 		selector = append(selector, fmt.Sprintf("%s=%s", k, v))
 	}
-	query := &url.Values{}
+	query := new(url.Values)
 	query.Add("labelSelector", strings.Join(selector, ","))
 	return s.List(env, query)
 }
@@ -54,7 +52,7 @@ func (s *PodsService) ListForReplicaSet(env string, replicaSet *v1beta1.ReplicaS
 	for k, v := range replicaSet.Spec.Selector.MatchLabels {
 		selector = append(selector, fmt.Sprintf("%s=%s", k, v))
 	}
-	query := &url.Values{}
+	query := new(url.Values)
 	query.Add("labelSelector", strings.Join(selector, ","))
 	return s.List(env, query)
 }
@@ -65,7 +63,7 @@ func (s *PodsService) ListForDeployment(env string, deployment *v1beta1.Deployme
 	for k, v := range deployment.Spec.Selector.MatchLabels {
 		selector = append(selector, fmt.Sprintf("%s=%s", k, v))
 	}
-	query := &url.Values{}
+	query := new(url.Values)
 	query.Add("labelSelector", strings.Join(selector, ","))
 	return s.List(env, query)
 }
@@ -76,8 +74,8 @@ func (s *PodsService) Get(env, name string) (*v1.Pod, *unversioned.Status, error
 	if err != nil {
 		return nil, nil, invalidEnvError(env)
 	}
-	resp := &v1.Pod{}
-	status, err := client.makeRequest("GET", "pods/"+name, nil, resp)
+	resp := new(v1.Pod)
+	status, err := client.unmarshalRequest("GET", "pods/"+name, nil, nil, resp)
 	if status != nil || err != nil {
 		return nil, status, err
 	}
@@ -90,7 +88,7 @@ func (s *PodsService) GetLog(env, name string) (string, *unversioned.Status, err
 	if err != nil {
 		return "", nil, invalidEnvError(env)
 	}
-	body, status, err := client.makeRequestRaw("GET", "pods/"+name+"/log", nil)
+	body, status, err := client.getRequestBytes("GET", "pods/"+name+"/log", nil, nil)
 	if status != nil || err != nil {
 		return "", status, err
 	}
@@ -107,10 +105,11 @@ func (s *PodsService) Create(env string, data *v1.Pod) (*v1.Pod, *unversioned.St
 	if err != nil {
 		return nil, nil, err
 	}
-	resp := &v1.Pod{}
-	status, err := client.makeRequest(
+	resp := new(v1.Pod)
+	status, err := client.unmarshalRequest(
 		"POST",
 		"pods",
+		nil,
 		bytes.NewReader(dataBytes),
 		resp,
 	)
@@ -126,8 +125,8 @@ func (s *PodsService) Delete(env, name string) (*v1.Pod, *unversioned.Status, er
 	if err != nil {
 		return nil, nil, invalidEnvError(env)
 	}
-	resp := &v1.Pod{}
-	status, err := client.makeRequest("DELETE", "pods/"+name, nil, resp)
+	resp := new(v1.Pod)
+	status, err := client.unmarshalRequest("DELETE", "pods/"+name, nil, nil, resp)
 	if status != nil || err != nil {
 		return nil, status, err
 	}
@@ -146,11 +145,61 @@ func (s *PodsService) DeleteForController(env string, controller *v1.Replication
 		return nil, status, err
 	}
 	for _, pod := range podList.Items {
-		resp := &v1.Pod{}
-		status, err := client.makeRequest("DELETE", "pods/"+pod.ObjectMeta.Name, nil, resp)
+		resp := new(v1.Pod)
+		status, err := client.unmarshalRequest("DELETE", "pods/"+pod.ObjectMeta.Name, nil, nil, resp)
 		if status != nil || err != nil {
 			return nil, status, err
 		}
 	}
 	return podList, nil, nil
+}
+
+// PodEvent describes an event on a pod
+type PodEvent struct {
+	Type   string  `json:"type"`
+	Object *v1.Pod `json:"object"`
+}
+
+// Watch watches the list of pods in `env`
+func (s *PodsService) Watch(env string, query *url.Values, eventChan chan<- *PodEvent, stopChan chan struct{}) error {
+	client, err := getClient(env)
+	if err != nil {
+		return invalidEnvError(env)
+	}
+	if query == nil {
+		query = &url.Values{}
+	}
+	if query.Get("resourceVersion") == "" {
+		// get the current pods first
+		pods := new(v1.PodList)
+		status, err := client.unmarshalRequest("GET", "pods", query, nil, pods)
+		if err != nil {
+			return err
+		}
+		if status != nil {
+			return errors.New(status.Message)
+		}
+		for _, pod := range pods.Items {
+			p := pod
+			eventChan <- &PodEvent{
+				Type:   "INIT",
+				Object: &p,
+			}
+		}
+		query.Set("resourceVersion", pods.ListMeta.ResourceVersion)
+	}
+	log.Infof("subscribing to pod events - %s - %v", env, query)
+	// then watch for events starting from the resource version
+	return client.streamWatchRequest("pods", query, func(eventType string, body json.RawMessage) error {
+		event := &PodEvent{
+			Type:   eventType,
+			Object: new(v1.Pod),
+		}
+		err = json.Unmarshal(body, event.Object)
+		if err != nil {
+			return err
+		}
+		eventChan <- event
+		return nil
+	}, stopChan)
 }

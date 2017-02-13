@@ -12,7 +12,7 @@ import (
 )
 
 // ReplicaSets is the default replicasets service instance
-var ReplicaSets = &ReplicaSetsService{}
+var ReplicaSets = new(ReplicaSetsService)
 
 // ReplicaSetsService is the kubernetes service to interace with replicasets
 type ReplicaSetsService struct {
@@ -24,12 +24,8 @@ func (s *ReplicaSetsService) List(env string, query *url.Values) (*v1beta1.Repli
 	if err != nil {
 		return nil, nil, invalidEnvError(env)
 	}
-	resp := &v1beta1.ReplicaSetList{}
-	path := "replicasets"
-	if query != nil {
-		path += "?" + query.Encode()
-	}
-	status, err := client.makeRequest("GET", path, nil, resp)
+	resp := new(v1beta1.ReplicaSetList)
+	status, err := client.unmarshalRequest("GET", "replicasets", query, nil, resp)
 	if status != nil || err != nil {
 		return nil, status, err
 	}
@@ -53,8 +49,8 @@ func (s *ReplicaSetsService) Get(env, name string) (*v1beta1.ReplicaSet, *unvers
 	if err != nil {
 		return nil, nil, invalidEnvError(env)
 	}
-	resp := &v1beta1.ReplicaSet{}
-	status, err := client.makeRequest("GET", "replicasets/"+name, nil, resp)
+	resp := new(v1beta1.ReplicaSet)
+	status, err := client.unmarshalRequest("GET", "replicasets/"+name, nil, nil, resp)
 	if status != nil || err != nil {
 		return nil, status, err
 	}
@@ -71,10 +67,11 @@ func (s *ReplicaSetsService) Create(env string, data *v1beta1.ReplicaSet) (*v1be
 	if err != nil {
 		return nil, nil, err
 	}
-	resp := &v1beta1.ReplicaSet{}
-	status, err := client.makeRequest(
+	resp := new(v1beta1.ReplicaSet)
+	status, err := client.unmarshalRequest(
 		"POST",
 		"replicasets",
+		nil,
 		bytes.NewReader(dataBytes),
 		resp,
 	)
@@ -94,10 +91,11 @@ func (s *ReplicaSetsService) Patch(env, name string, data *v1beta1.ReplicaSet) (
 	if err != nil {
 		return nil, nil, err
 	}
-	resp := &v1beta1.ReplicaSet{}
-	status, err := client.makeRequest(
+	resp := new(v1beta1.ReplicaSet)
+	status, err := client.unmarshalRequest(
 		"PATCH",
 		"replicasets/"+name,
+		nil,
 		bytes.NewReader(dataBytes),
 		resp,
 	)
@@ -113,8 +111,8 @@ func (s *ReplicaSetsService) Delete(env, name string) (*v1beta1.ReplicaSet, *unv
 	if err != nil {
 		return nil, nil, invalidEnvError(env)
 	}
-	resp := &v1beta1.ReplicaSet{}
-	status, err := client.makeRequest("DELETE", "replicasets/"+name, nil, resp)
+	resp := new(v1beta1.ReplicaSet)
+	status, err := client.unmarshalRequest("DELETE", "replicasets/"+name, nil, nil, resp)
 	if status != nil || err != nil {
 		return nil, status, err
 	}

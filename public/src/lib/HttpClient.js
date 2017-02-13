@@ -1,6 +1,7 @@
 import querystring from 'querystring'
 import request from 'browser-request'
 import { Promise } from 'bluebird'
+import WebSocketClient from './WebSocketClient'
 
 class Response {
   constructor (results, error, res) {
@@ -58,6 +59,11 @@ export default class HttpClient {
 
   delete (opts) {
     return this.send('DELETE', opts)
+  }
+
+  ws (opts) {
+    opts.url = this.baseURL + opts.url
+    return new WebSocketClient(opts)
   }
 
   isErrorCode (statusCode) {

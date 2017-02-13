@@ -1,31 +1,51 @@
 import * as Constants from '../constants'
 
-export function getDeploymentPods (env, name, qs) {
+const subscriptions = {}
+
+export function subDeploymentPods (env, name, qs) {
   return async function (dispatch, getState, api) {
-    dispatch({ type: Constants.GET_DEPLOYMENT_PODS })
-    const { results, error } = await api.pods.get(env, { labelSelector: 'app=' + name })
-
-    if (error) {
-      // TODO
-      /* window.app.snackbar.makeDismissableToast({
-         message: error.message,
-         level: window.app.snackbar.Level.WARNING
-         }) */
-      return false
+    if (!subscriptions[env]) {
+      subscriptions[env] = {}
     }
-
-    dispatch(setDeploymentPods(env, name, results))
+    if (!subscriptions[env][name]) {
+      dispatch({
+        type: Constants.CLEAR_DEPLOYMENT_PODS,
+        payload: {
+          env: env,
+          deployment: name
+        }
+      })
+      const ws = api.pods.watch(function (event) {
+        dispatch(changeDeploymentPod(env, name, JSON.parse(event.data)))
+      }, env, { labelSelector: 'app=' + name })
+      subscriptions[env][name] = ws
+    }
     return true
   }
 }
 
-export function setDeploymentPods (env, name, results) {
+export function unsubDeploymentPods (env, name, qs) {
+  if (subscriptions[env] && subscriptions[env][name]) {
+    const ws = subscriptions[env][name]
+    ws.close()
+    delete subscriptions[env][name]
+  }
   return {
-    type: Constants.SET_DEPLOYMENT_PODS,
+    type: Constants.CLEAR_DEPLOYMENT_PODS,
+    payload: {
+      env: env,
+      deployment: name
+    }
+  }
+}
+
+export function changeDeploymentPod (env, name, event) {
+  return {
+    type: Constants.CHANGE_DEPLOYMENT_POD,
     payload: {
       env: env,
       deployment: name,
-      pods: results.items
+      event: event
     }
   }
 }

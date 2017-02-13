@@ -285,6 +285,7 @@ func shutdown() {
 	auth.Cleanup()
 	log.Info("waiting for deployments and slack bot")
 	close(api.ExitingChan)
+	close(kube.ExitingChan)
 	close(slack.ExitingChan)
 	api.WaitGroup.Wait()
 	slack.WaitGroup.Wait()

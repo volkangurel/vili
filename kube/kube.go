@@ -1,14 +1,17 @@
 package kube
 
 import (
+	"bufio"
 	"bytes"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"strings"
@@ -16,7 +19,11 @@ import (
 
 	"github.com/airware/vili/config"
 	"github.com/airware/vili/kube/unversioned"
+	"github.com/airware/vili/log"
 )
+
+// ExitingChan is a flag indicating that the server is exiting
+var ExitingChan = make(chan struct{})
 
 var kubeconfig *Config
 var defaultClient *client
@@ -138,6 +145,13 @@ func getDefaultClient() (*client, error) {
 				},
 				Timeout: 5 * time.Second,
 			},
+			httpClientNoTimeout: &http.Client{
+				Transport: &http.Transport{
+					TLSClientConfig: &tls.Config{
+						RootCAs: caCertPool,
+					},
+				},
+			},
 			url:   "https://kubernetes.default.svc.cluster.local",
 			token: string(token),
 		}
@@ -187,6 +201,9 @@ func Init(c *Config) error {
 				Transport: tr,
 				Timeout:   5 * time.Second,
 			},
+			httpClientNoTimeout: &http.Client{
+				Transport: tr,
+			},
 			url:       envConfig.URL,
 			namespace: envConfig.Namespace,
 			token:     envConfig.Token,
@@ -196,13 +213,15 @@ func Init(c *Config) error {
 }
 
 type client struct {
-	httpClient *http.Client
-	url        string
-	token      string
-	namespace  string
+	httpClient          *http.Client
+	httpClientNoTimeout *http.Client
+	url                 string
+	token               string
+	namespace           string
 }
 
-func (c *client) makeRequestRaw(method, path string, body io.Reader) ([]byte, *unversioned.Status, error) {
+func (c *client) createRequest(method, path string, query *url.Values, body io.Reader) (*http.Request, error) {
+	// get url string
 	apiBase := fmt.Sprintf("%s/api/v1/", c.url)
 	if strings.HasPrefix(path, "deployments") || strings.HasPrefix(path, "replicasets") {
 		apiBase = fmt.Sprintf("%s/apis/extensions/v1beta1/", c.url)
@@ -211,9 +230,14 @@ func (c *client) makeRequestRaw(method, path string, body io.Reader) ([]byte, *u
 		path = fmt.Sprintf("namespaces/%s/%s", c.namespace, path)
 	}
 	urlStr := apiBase + path
+	if query != nil {
+		urlStr += "?" + query.Encode()
+	}
+
+	// create request
 	req, err := http.NewRequest(method, urlStr, body)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	if method == "PATCH" {
 		req.Header.Add("Content-Type", "application/merge-patch+json")
@@ -221,42 +245,124 @@ func (c *client) makeRequestRaw(method, path string, body io.Reader) ([]byte, *u
 	if c.token != "" {
 		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", c.token))
 	}
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, nil, err
-	}
-	defer resp.Body.Close()
-	respBody, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, nil, err
-	}
-	if resp.Header.Get("Content-Type") == "application/json" {
-		typeMeta := &unversioned.TypeMeta{}
-		err = json.Unmarshal(respBody, typeMeta)
-		if err != nil {
-			return nil, nil, err
-		}
-		if typeMeta.Kind == "Status" {
-			respStatus := &unversioned.Status{}
-			err = json.Unmarshal(respBody, respStatus)
-			if err != nil {
-				return nil, nil, err
-			}
-			return nil, respStatus, nil
-		}
-	}
-	return respBody, nil, nil
+	return req, nil
 }
 
-func (c *client) makeRequest(method, path string, body io.Reader, dest interface{}) (*unversioned.Status, error) {
-	respBody, status, err := c.makeRequestRaw(method, path, body)
-	if status != nil || err != nil {
-		return status, err
+func (c *client) getRequestBytes(method, path string, query *url.Values, body io.Reader) (respBody []byte, respStatus *unversioned.Status, err error) {
+	// create request
+	req, err := c.createRequest(method, path, query, body)
+	if err != nil {
+		return
 	}
-	if dest == nil {
-		return nil, nil
+
+	// send request
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return
 	}
-	return nil, json.Unmarshal(respBody, dest)
+	defer resp.Body.Close()
+
+	// read response body
+	respBody, err = ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return
+	}
+
+	// parse status
+	if resp.Header.Get("Content-Type") == "application/json" {
+		typeMeta := new(unversioned.TypeMeta)
+		err = json.Unmarshal(respBody, typeMeta)
+		if err != nil {
+			return
+		}
+		if typeMeta.Kind == "Status" {
+			respStatus = new(unversioned.Status)
+			err = json.Unmarshal(respBody, respStatus)
+			return
+		}
+	}
+	return
+}
+
+func (c *client) unmarshalRequest(method, path string, query *url.Values, body io.Reader, dest interface{}) (respStatus *unversioned.Status, err error) {
+	respBody, respStatus, err := c.getRequestBytes(method, path, query, body)
+	if err != nil {
+		return
+	}
+	err = json.Unmarshal(respBody, dest)
+	return
+}
+
+// WatchEvent describes an event
+type WatchEvent struct {
+	Type   string          `json:"type"`
+	Object json.RawMessage `json:"object"`
+}
+
+func (c *client) streamWatchRequest(path string, query *url.Values, processEvent func(string, json.RawMessage) error, stopChan chan struct{}) error {
+	if query == nil {
+		query = new(url.Values)
+	}
+	query.Set("watch", "true")
+	// create request
+	req, err := c.createRequest("GET", path, query, nil)
+	if err != nil {
+		return err
+	}
+
+	// send request
+	resp, err := c.httpClientNoTimeout.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	// read lines in goroutine
+	var watchErr error
+	watchChan := make(chan struct{})
+	go func() {
+		scanner := bufio.NewScanner(resp.Body)
+		event := new(WatchEvent)
+		for scanner.Scan() {
+			err = json.Unmarshal(scanner.Bytes(), event)
+			if err != nil {
+				watchErr = err
+				log.WithError(err).Error("error parsing watch response")
+				return
+			}
+			if event.Type == "ERROR" {
+				status := new(unversioned.Status)
+				err = json.Unmarshal(event.Object, status)
+				if err == nil {
+					err = errors.New(status.Message)
+				}
+				watchErr = err
+				log.WithError(err).Error("error event from watch response")
+				return
+			}
+			err = processEvent(event.Type, event.Object)
+			if err != nil {
+				watchErr = err
+				log.WithError(err).Error("error processing watch response")
+				return
+			}
+		}
+		log.Info("stopped watch loop")
+		close(watchChan)
+	}()
+
+	// wait until close is called on either closeChan or watchChan
+	select {
+	case <-stopChan:
+		break
+	case <-watchChan:
+		// TODO retry http queries
+		break
+	case <-ExitingChan:
+		break
+	}
+	log.Info("stopped stream request")
+	return watchErr
 }
 
 func invalidEnvError(env string) error {

@@ -32,7 +32,7 @@ func AddHandlers(s *server.Server) {
 
 	// jobs
 	s.Echo().Post(envPrefix+"jobs/:job/runs", envMiddleware(jobRunCreateHandler))
-	// s.Echo().Post(envPrefix+"jobs/:job/runs/:pod/:action", envMiddleware(jobRunActionHandler))
+	// s.Echo().Post(envPrefix+"jobs/:job/runs/:run/:action", envMiddleware(jobRunActionHandler))
 
 	// nodes
 	s.Echo().Get(envPrefix+"nodes", envMiddleware(nodesHandler))

@@ -324,10 +324,9 @@ func deploymentActionHandler(c *echo.Context) (err error) {
 		if actionRequest.Replicas == nil {
 			return server.ErrorResponse(c, errors.BadRequestError("Replicas missing from scale request"))
 		}
-		resp, _, err = kube.Deployments.Patch(env, deploymentName, &v1beta1.Deployment{
-			Spec: v1beta1.DeploymentSpec{
+		resp, _, err = kube.Deployments.Scale(env, deploymentName, &v1beta1.Scale{
+			Spec: v1beta1.ScaleSpec{
 				Replicas: actionRequest.Replicas,
-				Paused:   false,
 			},
 		})
 

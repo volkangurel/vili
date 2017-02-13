@@ -10,7 +10,7 @@ import (
 )
 
 // Nodes is the default nodes service instance
-var Nodes = &NodesService{}
+var Nodes = new(NodesService)
 
 // NodesService is the kubernetes service to interace with nodes
 type NodesService struct {
@@ -22,12 +22,8 @@ func (s *NodesService) List(env string, query *url.Values) (*v1.NodeList, error)
 	if err != nil {
 		return nil, invalidEnvError(env)
 	}
-	resp := &v1.NodeList{}
-	path := "nodes"
-	if query != nil {
-		path += "?" + query.Encode()
-	}
-	_, err = client.makeRequest("GET", path, nil, resp)
+	resp := new(v1.NodeList)
+	_, err = client.unmarshalRequest("GET", "nodes", query, nil, resp)
 	if err != nil {
 		return nil, err
 	}
@@ -40,8 +36,8 @@ func (s *NodesService) Get(env, name string) (*v1.Node, *unversioned.Status, err
 	if err != nil {
 		return nil, nil, invalidEnvError(env)
 	}
-	resp := &v1.Node{}
-	status, err := client.makeRequest("GET", "nodes/"+name, nil, resp)
+	resp := new(v1.Node)
+	status, err := client.unmarshalRequest("GET", "nodes/"+name, nil, nil, resp)
 	if status != nil || err != nil {
 		return nil, status, err
 	}
@@ -58,10 +54,11 @@ func (s *NodesService) Patch(env, name string, data *v1.Node) (*v1.Node, error) 
 	if err != nil {
 		return nil, err
 	}
-	resp := &v1.Node{}
-	_, err = client.makeRequest(
+	resp := new(v1.Node)
+	_, err = client.unmarshalRequest(
 		"PATCH",
 		"nodes/"+name,
+		nil,
 		bytes.NewReader(dataBytes),
 		resp,
 	)
@@ -88,10 +85,11 @@ func (s *NodesService) PatchUnschedulable(env, name string, unschedulable bool) 
 	if err != nil {
 		return nil, err
 	}
-	resp := &v1.Node{}
-	_, err = client.makeRequest(
+	resp := new(v1.Node)
+	_, err = client.unmarshalRequest(
 		"PATCH",
 		"nodes/"+name,
+		nil,
 		bytes.NewReader(dataBytes),
 		resp,
 	)

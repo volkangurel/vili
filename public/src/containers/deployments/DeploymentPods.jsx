@@ -8,7 +8,7 @@ import displayTime from '../../lib/displayTime'
 import Table from '../../components/Table'
 import { activateDeploymentTab } from '../../actions/app'
 import { scaleDeployment } from '../../actions/deployments'
-import { getDeploymentPods } from '../../actions/deploymentPods'
+import { subDeploymentPods, unsubDeploymentPods } from '../../actions/deploymentPods'
 import { deletePod } from '../../actions/pods'
 
 function mapStateToProps (state) {
@@ -19,17 +19,16 @@ function mapStateToProps (state) {
 
 @connect(mapStateToProps)
 export default class DeploymentPods extends React.Component {
-  constructor (props) {
-    super(props)
-    this.scale = this.scale.bind(this)
-    this.deletePod = this.deletePod.bind(this)
+
+  subData = () => {
+    this.props.dispatch(subDeploymentPods(this.props.params.env, this.props.params.deployment))
   }
 
-  loadData = () => {
-    this.props.dispatch(getDeploymentPods(this.props.params.env, this.props.params.deployment))
+  unsubData = () => {
+    this.props.dispatch(unsubDeploymentPods(this.props.params.env, this.props.params.deployment))
   }
 
-  scale () {
+  scale = () => {
     var replicas = prompt('Enter the number of replicas to scale to')
     if (!replicas) {
       return
@@ -41,26 +40,24 @@ export default class DeploymentPods extends React.Component {
     this.props.dispatch(scaleDeployment(this.props.params.env, this.props.params.deployment, replicas))
   }
 
-  deletePod (pod) {
+  deletePod = (pod) => {
     this.props.dispatch(deletePod(this.props.params.env, pod))
   }
 
   componentDidMount () {
     this.props.dispatch(activateDeploymentTab('pods'))
-    this.loadData()
-    this.dataInterval = setInterval(this.loadData, 3000)
+    this.subData()
   }
 
   componentDidUpdate (prevProps) {
     if (this.props.params !== prevProps.params) {
-      this.loadData()
+      this.unsubData()
+      this.subData()
     }
   }
 
   componentWillUnmount () {
-    if (this.dataInterval) {
-      clearInterval(this.dataInterval)
-    }
+    this.unsubData()
   }
 
   render () {

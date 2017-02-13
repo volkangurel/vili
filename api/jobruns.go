@@ -146,7 +146,7 @@ func (r *JobRun) Init(env, jobName, username string, async bool) error {
 	// 	return err
 	// }
 
-	pod, err := r.createNewPod()
+	_, err = r.createNewPod()
 	if err != nil {
 		return err
 	}
