@@ -5,12 +5,6 @@ import App from './containers/App'
 import Home from './containers/Home'
 import Environment from './containers/Environment'
 import EnvironmentHome from './containers/EnvironmentHome'
-// migrations
-import MigrationsBase from './containers/migrations/MigrationsBase'
-import Migrations from './containers/migrations/Migrations'
-import MigrationsSpec from './containers/migrations/MigrationsSpec'
-import MigrationsRuns from './containers/migrations/MigrationsRuns'
-import MigrationsRun from './containers/migrations/MigrationsRun'
 // deployments
 import DeploymentsList from './containers/deployments/DeploymentsList'
 import DeploymentBase from './containers/deployments/DeploymentBase'
@@ -20,10 +14,19 @@ import DeploymentPods from './containers/deployments/DeploymentPods'
 import DeploymentService from './containers/deployments/DeploymentService'
 import DeploymentRollouts from './containers/deployments/DeploymentRollouts'
 import DeploymentRollout from './containers/deployments/DeploymentRollout'
+// jobs
+import JobsList from './containers/jobs/JobsList'
+import JobBase from './containers/jobs/JobBase'
+import Job from './containers/jobs/Job'
+import JobSpec from './containers/jobs/JobSpec'
+import JobRuns from './containers/jobs/JobRuns'
+import JobRun from './containers/jobs/JobRun'
 // pods
-import { PodsList, Pod } from './pods'
+import PodsList from './containers/pods/PodsList'
+import Pod from './containers/pods/Pod'
 // nodes
-import { NodesList, Node } from './nodes'
+import NodesList from './containers/nodes/NodesList'
+import Node from './containers/nodes/Node'
 
 class NotFoundPage extends React.Component {
   render () {
@@ -40,12 +43,6 @@ export default function (history) {
         <IndexRoute component={Home} />
         <Route path='/:env' component={Environment}>
           <IndexRoute component={EnvironmentHome} />
-          <Route path='migrations' component={MigrationsBase}>
-            <IndexRoute component={Migrations} />
-            <Route path='spec' component={MigrationsSpec} />
-            <Route path='runs' component={MigrationsRuns} />
-            <Route path='runs/:run' component={MigrationsRun} />
-          </Route>
           <Route path='deployments' component={DeploymentsList} />
           <Route path='deployments/:deployment' component={DeploymentBase}>
             <IndexRoute component={Deployment} />
@@ -54,6 +51,13 @@ export default function (history) {
             <Route path='pods' component={DeploymentPods} />
             <Route path='service' component={DeploymentService} />
             <Route path='spec' component={DeploymentSpec} />
+          </Route>
+          <Route path='jobs' component={JobsList} />
+          <Route path='jobs/:job' component={JobBase}>
+            <IndexRoute component={Job} />
+            <Route path='runs' component={JobRuns} />
+            <Route path='runs/:run' component={JobRun} />
+            <Route path='spec' component={JobSpec} />
           </Route>
           <Route path='pods' component={PodsList} />
           <Route path='pods/:pod' component={Pod} />

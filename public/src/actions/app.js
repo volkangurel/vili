@@ -18,3 +18,12 @@ export function activateDeploymentTab (tab) {
     }
   }
 }
+
+export function activateJobTab (tab) {
+  return {
+    type: Constants.ACTIVATE_JOB_TAB,
+    payload: {
+      tab: tab
+    }
+  }
+}

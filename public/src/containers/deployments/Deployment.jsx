@@ -10,10 +10,6 @@ import { activateDeploymentTab } from '../../actions/app'
 import { getDeployments } from '../../actions/deployments'
 
 class Row extends React.Component {
-  constructor (props) {
-    super(props)
-    this.deployTag = this.deployTag.bind(this)
-  }
 
   render () {
     const { data, deployedAt } = this.props
@@ -36,7 +32,7 @@ class Row extends React.Component {
     )
   }
 
-  deployTag (event) {
+  deployTag = (event) => {
     var self = this
     event.target.setAttribute('disabled', 'disabled')
     // TODO send action
@@ -81,6 +77,7 @@ export default class Deployment extends React.Component {
     if (deployments.isFetching || !deployment) {
       return (<Loading />)
     }
+
     const columns = [
       {title: 'Tag', key: 'tag'},
       {title: 'Branch', key: 'branch'},

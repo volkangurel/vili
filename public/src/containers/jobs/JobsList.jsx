@@ -1,4 +1,3 @@
-/* global prompt */
 import React, { PropTypes } from 'react'
 import { connect } from 'react-redux'
 import { Button, ButtonToolbar } from 'react-bootstrap'
@@ -9,7 +8,7 @@ import displayTime from '../../lib/displayTime'
 import Table from '../../components/Table'
 import Loading from '../../components/Loading'
 import { activateNav } from '../../actions/app'
-import { getDeployments } from '../../actions/deployments'
+//import { getJobs } from '../../actions/jobs'
 
 class Row extends React.Component {
 
@@ -34,7 +33,7 @@ class Row extends React.Component {
   render () {
     return (<tr>
       <td data-column='name'>
-        <Link to={`/${this.props.env.name}/deployments/${this.props.name}`}>{this.props.name}</Link>
+        <Link to={`/${this.props.env.name}/jobs/${this.props.name}`}>{this.props.name}</Link>
       </td>
       <td data-column='tag'>{this.tag}</td>
       <td data-column='replicas'>{this.replicas}</td>
@@ -46,15 +45,15 @@ class Row extends React.Component {
 
 function mapStateToProps (state) {
   return {
-    deployments: state.deployments.toJS(),
+    jobs: state.jobs.toJS(),
     envs: state.envs
   }
 }
 
 @connect(mapStateToProps)
-export default class DeploymentsList extends React.Component {
+export default class JobsList extends React.Component {
   static propTypes = {
-    deployments: PropTypes.object,
+    jobs: PropTypes.object,
     envs: PropTypes.array,
     params: PropTypes.object, // react router provides this
     location: PropTypes.object // react router provides this
@@ -66,37 +65,14 @@ export default class DeploymentsList extends React.Component {
     this.release = this.release.bind(this)
   }
 
-  release () {
-    var url = prompt('Please enter the release url')
-    if (!url) {
-      return
-    }
-    var self = this
-    var env = _.findWhere(window.appconfig.envs, {name: this.props.params.env})
-    _.each(env.deployments, function (deploymentName) {
-      var replicaSet = self.state.apps.replicaSets[deploymentName]
-      if (!replicaSet) {
-        return
-      }
-      var row = self.refs['row-' + deploymentName]
-      if (row && row.state.tag && !row.state.approval) {
-        var deployment = replicaSet.metadata.name
-        var tag = replicaSet.spec.template.spec.containers[0].image.split(':')[1]
-        viliApi.releases.create(deployment, tag, {
-          url: url
-        })
-      }
-    })
-  }
-
   componentDidMount () {
     this.props.dispatch(activateNav('deployments'))
-    this.props.dispatch(getDeployments(this.props.params.env))
+//    this.props.dispatch(getJobs(this.props.params.env))
   }
 
   componentDidUpdate (prevProps) {
     if (this.props.params !== prevProps.params) {
-      this.props.dispatch(getDeployments(this.props.params.env))
+//      this.props.dispatch(getJobs(this.props.params.env))
     }
   }
 
@@ -104,19 +80,16 @@ export default class DeploymentsList extends React.Component {
     const self = this
     const env = _.findWhere(this.props.envs, {name: this.props.params.env})
 
-    const header = (
-      <div className='view-header'>
-        <ol className='breadcrumb'>
-          <li><Link to={`/${this.props.params.env}`}>{this.props.params.env}</Link></li>
-          <li className='active'>Deployments</li>
-        </ol>
-      </div>
-    )
+    const header = [(
+      <ol key='breadcrumb' className='breadcrumb'>
+        <li><Link to={`/${this.props.params.env}`}>{this.props.params.env}</Link></li>
+        <li className='active'>Jobs</li>
+      </ol>)]
 
-    if (this.props.deployments.isFetching) {
+    if (this.props.jobs.isFetching) {
       return (
         <div>
-          {header}
+          <div className='view-header'>{header}</div>
           <Loading />
         </div>
       )
@@ -136,17 +109,13 @@ export default class DeploymentsList extends React.Component {
       {title: 'Deployed', key: 'deployed_at'}
     ]
 
-    const rows = _.map(
-      env.deployments, function (deploymentName) {
-        const deployment = (self.props.deployments.envs &&
-          self.props.deployments.envs[self.props.params.env] &&
-          self.props.deployments.envs[self.props.params.env][deploymentName])
+    var rows = _.map(
+      env.jobs, function (jobName) {
         return {
           component: (
-            <Row key={'row-' + deploymentName}
+            <Row key={'row-' + jobName}
               env={env}
-              name={deploymentName}
-              replicaSet={deployment && deployment.replicaSet}
+              name={jobName}
            />)
         }
       }
@@ -154,7 +123,7 @@ export default class DeploymentsList extends React.Component {
 
     return (
       <div>
-        {header}
+        <div className='view-header'>{header}</div>
         <Table columns={columns} rows={rows} />
       </div>
     )

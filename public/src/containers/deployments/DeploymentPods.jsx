@@ -91,7 +91,6 @@ export default class DeploymentPods extends React.Component {
       return {
         name: nameLink,
         host: hostLink,
-        // deployment: deploymentLink,
         phase: pod.status.phase,
         ready: ready ? String.fromCharCode('10003') : '',
         pod_ip: pod.status.podIP,

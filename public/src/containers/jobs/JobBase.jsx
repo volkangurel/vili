@@ -1,6 +1,9 @@
-import React from 'react'
+import React, { PropTypes } from 'react'
+import { connect } from 'react-redux'
 import { RouteHandler, Link } from 'react-router' // eslint-disable-line no-unused-vars
-import * as _ from 'underscore'
+import _ from 'underscore'
+
+import { activateNav } from '../../actions/app'
 
 const tabs = {
   'home': 'Home',
@@ -8,34 +11,35 @@ const tabs = {
   'runs': 'Runs'
 }
 
-export default class MigrationsBase extends React.Component {
-  constructor (props) {
-    super(props)
-    this.state = {
-      activeTab: 'home'
-    }
-    this.activateTab = this.activateTab.bind(this)
+function mapStateToProps (state) {
+  return {
+    app: state.app.toJS()
   }
+}
 
-  activateTab (tab) {
-    this.setState({
-      activeTab: tab
-    })
+@connect(mapStateToProps)
+export default class JobBase extends React.Component {
+  static propTypes = {
+    app: PropTypes.object,
+    params: PropTypes.object, // react router provides this
+    location: PropTypes.object // react router provides this
   }
 
   componentDidMount () {
-    this.props.activateSideNavItem(['jobs', this.props.params.job])
+    this.props.dispatch(activateNav('jobs', this.props.params.job))
   }
 
-  componentDidUpdate () {
-    this.props.activateSideNavItem(['jobs', this.props.params.job])
+  componentDidUpdate (prevProps) {
+    if (this.props.params.job !== prevProps.params.job) {
+      this.props.dispatch(activateNav('jobs', this.props.params.job))
+    }
   }
 
   render () {
     var self = this
     var tabElements = _.map(tabs, function (name, key) {
       var className = ''
-      if (self.state.activeTab === key) {
+      if (self.props.app.jobTab === key) {
         className = 'active'
       }
       var link = `/${self.props.params.env}/jobs/${self.props.params.job}`
@@ -43,14 +47,14 @@ export default class MigrationsBase extends React.Component {
         link += `/${key}`
       }
       return (
-        <li role='presentation' className={className}>
+        <li key={key} role='presentation' className={className}>
           <Link to={link}>{name}</Link>
         </li>
       )
     })
     return (
       <div>
-        <div className='view-header'>
+        <div key='view-header' className='view-header'>
           <ol className='breadcrumb'>
             <li><Link to={`/${this.props.params.env}`}>{this.props.params.env}</Link></li>
             <li><Link to={`/${this.props.params.env}/jobs`}>Jobs</Link></li>
@@ -60,7 +64,7 @@ export default class MigrationsBase extends React.Component {
             {tabElements}
           </ul>
         </div>
-        <RouteHandler db={this.props.db} activateTab={this.activateTab} />
+        {this.props.children}
       </div>
     )
   }

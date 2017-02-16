@@ -16,10 +16,6 @@ export default class SideNav extends React.Component {
       return
     }
     var items = []
-    if (env.migrations) {
-      items.push(<LinkMenuItem key='migrations' to={`/${env.name}/migrations`}
-        active={nav.item === 'migrations'}>Migrations</LinkMenuItem>)
-    }
     if (!_.isEmpty(this.props.env.deployments)) {
       items.push(
         <LinkMenuItem key='deployments' to={`/${env.name}/deployments`}
@@ -31,6 +27,20 @@ export default class SideNav extends React.Component {
           <LinkMenuItem key={`deployments-${deployment}`} to={`/${env.name}/deployments/${deployment}`} subitem
             active={nav.item === 'deployments' && nav.subItem === deployment}>
             {deployment}
+          </LinkMenuItem>)
+      })
+    }
+    if (!_.isEmpty(this.props.env.jobs)) {
+      items.push(
+        <LinkMenuItem key='jobs' to={`/${env.name}/jobs`}
+          active={nav.item === 'jobs' && !nav.subItem}>
+          Jobs
+        </LinkMenuItem>)
+      _.map(env.jobs, function (job) {
+        items.push(
+          <LinkMenuItem key={`jobs-${job}`} to={`/${env.name}/jobs/${job}`} subitem
+            active={nav.item === 'jobs' && nav.subItem === job}>
+            {job}
           </LinkMenuItem>)
       })
     }

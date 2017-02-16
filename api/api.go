@@ -31,6 +31,7 @@ func AddHandlers(s *server.Server) {
 	// s.Echo().Post(envPrefix+"deployments/:deployment/rollouts/:rollout/:action", envMiddleware(rolloutActionHandler))
 
 	// jobs
+	s.Echo().Get(envPrefix+"jobs/:job", envMiddleware(jobGetHandler))
 	s.Echo().Post(envPrefix+"jobs/:job/runs", envMiddleware(jobRunCreateHandler))
 	// s.Echo().Post(envPrefix+"jobs/:job/runs/:run/:action", envMiddleware(jobRunActionHandler))
 

@@ -23,9 +23,16 @@ export default {
     }
   },
 
-  migrations: {
-    async get (env, qs) {
-      return await httpClient.get({ url: 'envs/' + env + '/migrations', query: qs })
+  jobs: {
+    async get (env, name, qs) {
+      if (_.isObject(name)) {
+        qs = name
+        name = null
+      }
+      if (name) {
+        return await httpClient.get({ url: 'envs/' + env + '/jobs/' + name, query: qs })
+      }
+      return await httpClient.get({ url: 'envs/' + env + '/jobs', query: qs })
     }
   },
 

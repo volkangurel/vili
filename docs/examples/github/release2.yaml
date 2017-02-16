@@ -1,0 +1,14 @@
+spec:
+  # wave 1
+  job2:
+    wave: 1
+    retryCount: 3
+  # wave 2
+  app1:
+    wave: 2
+  # wave 3
+  app2:
+    wave: 3
+    featureEnvReplicas: 0
+  app3:
+    wave: 3

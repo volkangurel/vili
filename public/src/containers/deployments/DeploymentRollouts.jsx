@@ -24,7 +24,7 @@ export default class DeploymentRollouts extends React.Component {
       this.props.deployments.envs[this.props.params.env][this.props.params.deployment])
   }
 
-  getRolloutRow (deployment, replicaSet) {
+  getRolloutRow = (deployment, replicaSet) => {
     const deploymentRevision = deployment.replicaSet.metadata.annotations['deployment.kubernetes.io/revision']
     const revision = replicaSet.metadata.annotations['deployment.kubernetes.io/revision']
     return {
@@ -40,6 +40,17 @@ export default class DeploymentRollouts extends React.Component {
           deployment={this.props.params.deployment}
         />
       )
+    }
+  }
+
+  componentDidMount () {
+    this.props.dispatch(activateDeploymentTab('rollouts'))
+    this.props.dispatch(getDeployments(this.props.params.env, this.props.params.deployment))
+  }
+
+  componentDidUpdate (prevProps) {
+    if (this.props.params !== prevProps.params) {
+      this.props.dispatch(getDeployments(this.props.params.env, this.props.params.deployment))
     }
   }
 
@@ -63,24 +74,9 @@ export default class DeploymentRollouts extends React.Component {
     return (<Table columns={columns} rows={rows} />)
   }
 
-  componentDidMount () {
-    this.props.dispatch(activateDeploymentTab('rollouts'))
-    this.props.dispatch(getDeployments(this.props.params.env, this.props.params.deployment))
-  }
-
-  componentDidUpdate (prevProps) {
-    if (this.props.params !== prevProps.params) {
-      this.props.dispatch(getDeployments(this.props.params.env, this.props.params.deployment))
-    }
-  }
-
 }
 
 class Row extends React.Component {
-  constructor (props) {
-    super(props)
-    this.rollback = this.rollback.bind(this)
-  }
 
   render () {
     const { revision, tag, time, replicas, deploymentRevision, env, deployment } = this.props
@@ -103,7 +99,7 @@ class Row extends React.Component {
     )
   }
 
-  rollback (event) {
+  rollback = (event) => {
     var self = this
     event.target.setAttribute('disabled', 'disabled')
     // TODO send action
