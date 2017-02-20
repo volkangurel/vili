@@ -38,8 +38,9 @@ func (s *ReplicaSetsService) ListForDeployment(env string, deployment *v1beta1.D
 	for k, v := range deployment.Spec.Selector.MatchLabels {
 		selector = append(selector, fmt.Sprintf("%s=%s", k, v))
 	}
-	query := &url.Values{}
-	query.Add("labelSelector", strings.Join(selector, ","))
+	query := &url.Values{
+		"labelSelector": {strings.Join(selector, ",")},
+	}
 	return s.List(env, query)
 }
 

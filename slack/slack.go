@@ -39,15 +39,15 @@ func Init(c *Config) error {
 }
 
 // PostLogMessage posts a formatted log message to slack
-func PostLogMessage(message, level string) error {
+func PostLogMessage(message string, level log.Level) error {
 	if client == nil {
 		return nil
 	}
 	color := "#36a64f"
 	switch level {
-	case "error":
+	case log.ErrorLevel:
 		color = "#ff3300"
-	case "warn":
+	case log.WarnLevel:
 		color = "#ffaa00"
 	}
 

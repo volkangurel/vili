@@ -1,7 +1,6 @@
 package api
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/url"
 	"strings"
@@ -11,12 +10,11 @@ import (
 	echo "gopkg.in/labstack/echo.v1"
 )
 
-// LogMessage is a wrapper for log messages in the db
-type LogMessage struct {
-	Time    time.Time `json:"time"`
-	Message string    `json:"msg"`
-	Level   string    `json:"level"`
-}
+var (
+	webSocketCloseMessage = map[string]string{
+		"type": "CLOSED",
+	}
+)
 
 func parseQueryFields(c *echo.Context) map[string]bool {
 	queryFields := make(map[string]bool)
@@ -65,27 +63,6 @@ func getImageTagFromDeployment(deployment *v1beta1.Deployment) (string, error) {
 	return imageSplit[1], nil
 }
 
-// Clock is a time.Duration struct with custom JSON marshal functions
-type Clock time.Duration
-
-// MarshalJSON implements the json.Marshaler interface
-func (c *Clock) MarshalJSON() ([]byte, error) {
-	return json.Marshal(int64(time.Duration(*c) / time.Millisecond))
-}
-
-// UnmarshalJSON implements the json.Unmarshaler interface
-func (c *Clock) UnmarshalJSON(b []byte) error {
-	var ms int64
-	err := json.Unmarshal(b, &ms)
-	if err != nil {
-		return err
-	}
-	*c = Clock(time.Duration(ms) * time.Millisecond)
-	return nil
-}
-func (c *Clock) humanize() string {
-	if c == nil {
-		return "0"
-	}
-	return ((time.Duration(*c) / time.Second) * time.Second).String()
+func humanizeDuration(d time.Duration) string {
+	return ((d / time.Second) * time.Second).String()
 }

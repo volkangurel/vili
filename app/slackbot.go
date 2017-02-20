@@ -168,9 +168,9 @@ func rolloutDeployment(env, deployment, tag, branch, username string) {
 	if err != nil {
 		switch e := err.(type) {
 		case api.RolloutInitError:
-			slack.PostLogMessage(e.Error(), "error")
+			slack.PostLogMessage(e.Error(), log.ErrorLevel)
 		case *docker.NotFoundError:
-			slack.PostLogMessage(fmt.Sprintf("Deployment *%s* with tag *%s* not found", deployment, tag), "error")
+			slack.PostLogMessage(fmt.Sprintf("Deployment *%s* with tag *%s* not found", deployment, tag), log.ErrorLevel)
 		default:
 			log.Error(e)
 		}

@@ -1,31 +1,50 @@
 import React from 'react'
+import { connect } from 'react-redux'
 import { Link } from 'react-router'
 import { Button } from 'react-bootstrap'
-import { Promise } from 'bluebird'
 import _ from 'underscore'
 import humanSize from 'human-size'
-import { viliApi, displayTime } from '../lib'
-import Table from '../components/Table'
-import Loading from '../components/Loading'
 
-export class NodesList extends React.Component {
-  constructor (props) {
-    super(props)
-    this.state = {}
+import displayTime from '../../lib/displayTime'
+import Table from '../../components/Table'
+import Loading from '../../components/Loading'
+import { activateNav } from '../../actions/app'
+import { subNodes, unsubNodes, setNodeSchedulable } from '../../actions/nodes'
 
-    this.setNodeSchedulable = this.setNodeSchedulable.bind(this)
+function mapStateToProps (state) {
+  return {
+    nodes: state.nodes.toJS()
+  }
+}
+
+@connect(mapStateToProps)
+export default class NodesList extends React.Component {
+
+  subData = () => {
+    this.props.dispatch(subNodes(this.props.params.env))
+  }
+
+  unsubData = () => {
+    this.props.dispatch(unsubNodes(this.props.params.env))
+  }
+
+  componentDidMount () {
+    this.props.dispatch(activateNav('nodes'))
   }
 
   render () {
-    var header = (
+    const nodes = (this.props.nodes.envs &&
+      this.props.nodes.envs[this.props.params.env]) ||
+      []
+    const header = (
       <div className='view-header'>
         <ol className='breadcrumb'>
           <li><Link to={`/${this.props.params.env}`}>{this.props.params.env}</Link></li>
           <li className='active'>Nodes</li>
         </ol>
       </div>
-        )
-    if (!this.state.nodes) {
+    )
+    if (this.props.nodes.isFetching) {
       return (
         <div>
           {header}
@@ -33,6 +52,7 @@ export class NodesList extends React.Component {
         </div>
       )
     }
+
     var self = this
     var columns = [
       { title: 'Host', key: 'host' },
@@ -55,54 +75,53 @@ export class NodesList extends React.Component {
       { title: 'Actions', key: 'actions' }
     ]
 
-    var rows = _.map(
-            this.state.nodes.items,
-            function (node) {
-              var name = node.metadata.name
-              var memory = /(\d+)Ki/g.exec(node.status.capacity.memory)
-              if (memory) {
-                memory = humanSize(parseInt(memory[1]) * 1024, 1)
-              } else {
-                memory = node.status.capacity.memory
-              }
-              var nodeStatuses = []
-              if (node.status.conditions[0].status === 'Unknown') {
-                nodeStatuses.push('NotReady')
-              } else {
-                nodeStatuses.push(node.status.conditions[0].type)
-              }
-              var actions
-              if (node.spec.unschedulable === true) {
-                actions = (
-                  <Button bsStyle='success' bsSize='xs'
-                    onClick={self.setNodeSchedulable.bind(self, name, 'enable')}>
-                            Enable
-                        </Button>
-                    )
-                nodeStatuses.push('Disabled')
-              } else {
-                actions = (
-                  <Button bsStyle='danger' bsSize='xs'
-                    onClick={self.setNodeSchedulable.bind(self, name, 'disable')}>
-                            Disable
-                        </Button>
-                    )
-              }
-              return {
-                host: <Link to={`/${self.props.params.env}/nodes/${name}`}>{name}</Link>,
-                instance_type: node.metadata.labels['airware.io/instance-type'],
-                role: node.metadata.labels['airware.io/role'],
-                cpu_capacity: node.status.capacity.cpu,
-                memory_capacity: memory,
-                pods_capacity: node.status.capacity.pods,
-                os_version: node.status.nodeInfo.osImage,
-                kubelet_version: node.status.nodeInfo.kubeletVersion,
-                proxy_version: node.status.nodeInfo.kubeProxyVersion,
-                created: displayTime(new Date(node.metadata.creationTimestamp)),
-                status: nodeStatuses.join(','),
-                actions: actions
-              }
-            })
+    const rows = _.map(nodes, function (node) {
+      var name = node.metadata.name
+      var memory = /(\d+)Ki/g.exec(node.status.capacity.memory)
+      if (memory) {
+        memory = humanSize(parseInt(memory[1]) * 1024, 1)
+      } else {
+        memory = node.status.capacity.memory
+      }
+      var nodeStatuses = []
+      if (node.status.conditions[0].status === 'Unknown') {
+        nodeStatuses.push('NotReady')
+      } else {
+        nodeStatuses.push(node.status.conditions[0].type)
+      }
+      var actions
+      if (node.spec.unschedulable === true) {
+        actions = (
+          <Button bsStyle='success' bsSize='xs'
+            onClick={self.setNodeSchedulable.bind(self, name, 'enable')}>
+            Enable
+          </Button>
+        )
+        nodeStatuses.push('Disabled')
+      } else {
+        actions = (
+          <Button bsStyle='danger' bsSize='xs'
+            onClick={self.setNodeSchedulable.bind(self, name, 'disable')}>
+            Disable
+          </Button>
+        )
+      }
+
+      return {
+        host: <Link to={`/${self.props.params.env}/nodes/${name}`}>{name}</Link>,
+        instance_type: node.metadata.labels['airware.io/instance-type'],
+        role: node.metadata.labels['airware.io/role'],
+        cpu_capacity: node.status.capacity.cpu,
+        memory_capacity: memory,
+        pods_capacity: node.status.capacity.pods,
+        os_version: node.status.nodeInfo.osImage,
+        kubelet_version: node.status.nodeInfo.kubeletVersion,
+        proxy_version: node.status.nodeInfo.kubeProxyVersion,
+        created: displayTime(new Date(node.metadata.creationTimestamp)),
+        status: nodeStatuses.join(','),
+        actions: actions
+      }
+    })
 
     return (
       <div>
@@ -112,24 +131,8 @@ export class NodesList extends React.Component {
     )
   }
 
-  componentDidMount () {
-    var self = this
-    this.props.activateSideNavItem(['nodes'])
-    Promise.props({
-      nodes: viliApi.nodes.get(this.props.params.env)
-    }).then(function (props) {
-      self.setState(props)
-    })
+  setNodeSchedulable = (node, action) => {
+    this.props.dispatch(setNodeSchedulable(this.props.params.env, this.props.params.node, action))
   }
 
-  setNodeSchedulable (node, action) {
-    var self = this
-    viliApi.nodes
-           .setSchedulable(this.props.params.env, node, action)
-           .then(function () {
-             return viliApi.nodes.get(self.props.params.env)
-           }).then(function (nodes) {
-             self.setState({nodes: nodes})
-           })
-  }
 }

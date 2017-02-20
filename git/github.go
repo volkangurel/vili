@@ -94,8 +94,9 @@ func (s *githubService) List(branch, path string) ([]string, error) {
 		return nil, fmt.Errorf("%s is a file", path)
 	}
 	var paths []string
+	prefix := strings.Split(path, "?")[0]
 	for _, file := range directory {
-		paths = append(paths, strings.TrimPrefix(strings.TrimPrefix(*file.Path, path), "/"))
+		paths = append(paths, strings.TrimPrefix(strings.TrimPrefix(*file.Path, prefix), "/"))
 	}
 	return paths, nil
 }

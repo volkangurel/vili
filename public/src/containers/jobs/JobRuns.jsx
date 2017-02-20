@@ -6,7 +6,9 @@ import _ from 'underscore'
 import displayTime from '../../lib/displayTime'
 import Table from '../../components/Table'
 import { activateJobTab } from '../../actions/app'
-import { subJobRuns, unsubJobRuns } from '../../actions/jobRuns'
+import { getJobs } from '../../actions/jobs'
+// import { subJobRuns, unsubJobRuns } from '../../actions/jobRuns'
+// import { deletePod } from '../../actions/pods'
 
 function mapStateToProps (state) {
   return {
@@ -52,19 +54,21 @@ export default class JobRuns extends React.Component {
     const columns = [
       {title: 'Run', key: 'run'},
       {title: 'Tag', key: 'tag'},
-      {title: 'Time', key: 'time'},
+      {title: 'Start Time', key: 'starttime'},
+      {title: 'Completion Time', key: 'completiontime'},
       {title: 'Status', key: 'status'},
       {title: 'Actions', key: 'actions'}
     ]
 
-    const rows = _.map(sortedRuns, function (pod) {
+    const rows = _.map(sortedRuns, function (jobRun) {
       return {
         component: (
           <Row
-            key={pod.metadata.name}
-            pod={pod}
+            key={jobRun.metadata.name}
+            jobRun={jobRun}
             env={self.props.params.env}
             job={self.props.params.job}
+            dispatch={self.props.dispatch}
           />
         )
       }
@@ -76,15 +80,28 @@ export default class JobRuns extends React.Component {
 class Row extends React.Component {
 
   render () {
-    const { pod, env } = this.props
-    const tag = pod.spec.containers[0].image.split(':')[1]
-    const time = new Date(pod.metadata.creationTimestamp)
+    const { env, job, jobRun} = this.props
+    const tag = jobRun.spec.template.spec.containers[0].image.split(':')[1]
+    const startTime = new Date(jobRun.status.startTime)
+    const completionTime = new Date(jobRun.status.completionTime)
+    var status = 'Running'
+    _.each(jobRun.status.conditions, function (condition) {
+      switch (condition.type) {
+        case 'Complete':
+          status = 'Complete'
+          break
+        case 'Failed':
+          status = 'Failed'
+          break
+      }
+    })
     return (
       <tr>
-        <td data-column='pod'><Link to={`/${env}/pods/${pod.metadata.name}`}>{pod.metadata.name}</Link></td>
+        <td data-column='run'><Link to={`/${env}/jobs/${job}/runs/${jobRun.metadata.name}`}>{jobRun.metadata.name}</Link></td>
         <td data-column='tag'>{tag}</td>
-        <td data-column='time'>{displayTime(time)}</td>
-        <td data-column='phase'>{pod.status.phase}</td>
+        <td data-column='starttime'>{displayTime(startTime)}</td>
+        <td data-column='completiontime'>{displayTime(completionTime)}</td>
+        <td data-column='status'>{status}</td>
         <td data-column='actions'>
           <button type='button' className='btn btn-xs btn-danger' onClick={this.deletePod}>Delete</button>
         </td>
@@ -93,8 +110,7 @@ class Row extends React.Component {
   }
 
   deletePod = () => {
-    // TODO
-    console.log('deleting')
+    this.props.dispatch(deletePod(this.props.env, this.props.pod.metadata.name))
   }
 
 }

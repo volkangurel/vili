@@ -6,6 +6,8 @@ import deployments from './deployments'
 import deploymentPods from './deploymentPods'
 import jobs from './jobs'
 import jobRuns from './jobRuns'
+import pods from './pods'
+import nodes from './nodes'
 
 function hardcodedValueReducer (state = null, action) {
   return state
@@ -22,7 +24,9 @@ const reducers = {
   deployments: deployments,
   deploymentPods: deploymentPods,
   jobs: jobs,
-  jobRuns: jobRuns
+  jobRuns: jobRuns,
+  pods: pods,
+  nodes: nodes
 }
 
 export default reducers

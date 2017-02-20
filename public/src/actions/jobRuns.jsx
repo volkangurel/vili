@@ -15,8 +15,8 @@ export function subJobRuns (env, name, qs) {
           job: name
         }
       })
-      const ws = api.pods.watch(function (event) {
-        dispatch(changeJobRun(env, name, JSON.parse(event.data)))
+      const ws = api.jobs.watch(function (data) {
+        dispatch(changeJobRun(env, name, data))
       }, env, { labelSelector: 'job=' + name })
       subscriptions[env][name] = ws
     }

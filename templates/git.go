@@ -84,26 +84,26 @@ func (s *gitService) Deployment(env, branch, name string) (Template, error) {
 	return Template(fileContent), nil
 }
 
-// Pods returns a list of pods for the given environment
-func (s *gitService) Pods(env, branch string) ([]string, error) {
-	directoryContent, err := s.listDirectory(env, branch, "pods")
+// Jobs returns a list of jobs for the given environment
+func (s *gitService) Jobs(env, branch string) ([]string, error) {
+	directoryContent, err := s.listDirectory(env, branch, "jobs")
 	if err != nil {
 		return nil, err
 	}
-	var pods []string
+	var jobs []string
 	for _, filePath := range directoryContent {
 		parts := strings.Split(filePath, ".")
 		if len(parts) != 2 || parts[1] != "yaml" {
 			continue
 		}
-		pods = append(pods, parts[0])
+		jobs = append(jobs, parts[0])
 	}
-	return pods, nil
+	return jobs, nil
 }
 
-// Pod returns a pod for the given environment
-func (s *gitService) Pod(env, branch, name string) (Template, error) {
-	fileContent, err := s.getContents(env, branch, "pods/"+name+".yaml")
+// Job returns a job for the given environment
+func (s *gitService) Job(env, branch, name string) (Template, error) {
+	fileContent, err := s.getContents(env, branch, "jobs/"+name+".yaml")
 	if err != nil {
 		return "", err
 	}

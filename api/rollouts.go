@@ -17,7 +17,6 @@ import (
 	"github.com/airware/vili/log"
 	"github.com/airware/vili/server"
 	"github.com/airware/vili/session"
-	"github.com/airware/vili/slack"
 	"github.com/airware/vili/templates"
 	"github.com/airware/vili/util"
 	echo "gopkg.in/labstack/echo.v1"
@@ -50,10 +49,10 @@ func rolloutCreateHandler(c *echo.Context) error {
 		return err
 	}
 	if rollout.Branch == "" {
-		return server.ErrorResponse(c, errors.BadRequestError("Request missing branch"))
+		return server.ErrorResponse(c, errors.BadRequest("Request missing branch"))
 	}
 	if rollout.Tag == "" {
-		return server.ErrorResponse(c, errors.BadRequestError("Request missing tag"))
+		return server.ErrorResponse(c, errors.BadRequest("Request missing tag"))
 	}
 	err := rollout.Init(
 		env,
@@ -64,7 +63,7 @@ func rolloutCreateHandler(c *echo.Context) error {
 	if err != nil {
 		switch e := err.(type) {
 		case RolloutInitError:
-			return server.ErrorResponse(c, errors.BadRequestError(e.Error()))
+			return server.ErrorResponse(c, errors.BadRequest(e.Error()))
 		default:
 			return e
 		}
@@ -233,7 +232,7 @@ func (r *Rollout) createNewDeployment(fromDeployment *v1beta1.Deployment) (newDe
 		}
 	}
 
-	err = r.addMessage(fmt.Sprintf("Rollout for tag %s and branch %s created by %s", r.Tag, r.Branch, r.Username), "info")
+	r.logMessage(fmt.Sprintf("Rollout for tag %s and branch %s created by %s", r.Tag, r.Branch, r.Username), log.InfoLevel)
 	return
 }
 
@@ -276,55 +275,23 @@ func (r *Rollout) watchRollout(deployment *v1beta1.Deployment) (err error) {
 	return nil
 }
 
-func (r *Rollout) addMessage(message, level string) error {
-	var logf func(...interface{})
-	switch level {
-	case "debug":
-		logf = log.Debug
-	case "info":
-		logf = log.Info
-	case "warn":
-		logf = log.Warn
-	case "error":
-		logf = log.Error
-	default:
-		return fmt.Errorf("Invalid level %s", level)
-	}
-	logf(message)
-	_, err := r.db.Child("log").Push(LogMessage{
-		Time:    time.Now(),
-		Message: message,
-		Level:   level,
-	})
-	if err != nil {
-		return err
-	}
-
-	if level != "debug" {
-		urlStr := fmt.Sprintf(
-			"%s/%s/deployments/%s/rollouts/%s",
-			config.GetString(config.URI),
-			r.Env,
-			r.Deployment,
-			r.ID,
-		)
-		slackMessage := fmt.Sprintf(
-			"*%s* - *%s* - <%s|%s> - %s",
-			r.Env,
-			r.Deployment,
-			urlStr,
-			r.ID,
-			message,
-		)
-		if level == "error" {
-			slackMessage += " <!channel>"
-		}
-		err := slack.PostLogMessage(slackMessage, level)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+func (r *Rollout) logMessage(message string, level log.Level) {
+	urlStr := fmt.Sprintf(
+		"%s/%s/deployments/%s/rollouts/%s", // TODO fix url (ID should be the rollout version)
+		config.GetString(config.URI),
+		r.Env,
+		r.Deployment,
+		r.ID,
+	)
+	slackMessage := fmt.Sprintf(
+		"*%s* - *%s* - <%s|%s> - %s",
+		r.Env,
+		r.Deployment,
+		urlStr,
+		r.ID,
+		message,
+	)
+	logMessage(message, slackMessage, level)
 }
 
 func rolloutDB(env, deployment, rolloutID string) *firego.Firebase {

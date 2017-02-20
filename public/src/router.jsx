@@ -20,7 +20,6 @@ import JobBase from './containers/jobs/JobBase'
 import Job from './containers/jobs/Job'
 import JobSpec from './containers/jobs/JobSpec'
 import JobRuns from './containers/jobs/JobRuns'
-import JobRun from './containers/jobs/JobRun'
 // pods
 import PodsList from './containers/pods/PodsList'
 import Pod from './containers/pods/Pod'
@@ -56,7 +55,6 @@ export default function (history) {
           <Route path='jobs/:job' component={JobBase}>
             <IndexRoute component={Job} />
             <Route path='runs' component={JobRuns} />
-            <Route path='runs/:run' component={JobRun} />
             <Route path='spec' component={JobSpec} />
           </Route>
           <Route path='pods' component={PodsList} />

@@ -1,7 +1,7 @@
 import React from 'react'
 import { connect } from 'react-redux'
 import { Link } from 'react-router'
-import { Alert, ButtonGroup, Button, FormControl } from 'react-bootstrap'
+import { Alert, ButtonGroup, Button } from 'react-bootstrap'
 import _ from 'underscore'
 import moment from 'moment'
 import 'moment-duration-format'
@@ -13,10 +13,10 @@ import { activateDeploymentTab } from '../../actions/app'
 import { getDeployments } from '../../actions/deployments'
 import { getDeploymentPods } from '../../actions/deploymentPods'
 
-const rolloutStrategies = [
-    'RollingUpdate',
-    'Recreate',
-]
+// const rolloutStrategies = [
+//   'RollingUpdate',
+//   'Recreate'
+// ]
 
 function mapStateToProps (state) {
   return {

@@ -8,10 +8,7 @@ export default function (state = initialState, action) {
     case Constants.GET_DEPLOYMENTS:
       return state.set('isFetching', true)
     case Constants.SET_DEPLOYMENTS:
-      const updatedEnvs = {}
-      updatedEnvs[action.payload.env] = action.payload.deployments
-      const envs = state.get('envs') || Immutable.Map({})
-      return state.set('envs', envs.mergeDeep(updatedEnvs))
+      return state.setIn(['envs', action.payload.env], action.payload.deployments)
                   .set('isFetching', false)
                   .set('lastUpdated', new Date())
     default:

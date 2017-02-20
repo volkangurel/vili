@@ -148,7 +148,7 @@ func RefreshEnvs() error {
 		wg.Add(1)
 		go func(name, branch string) {
 			defer wg.Done()
-			jobs, err := templates.Pods(name, branch)
+			jobs, err := templates.Jobs(name, branch)
 			if err != nil {
 				log.Error(err)
 				return

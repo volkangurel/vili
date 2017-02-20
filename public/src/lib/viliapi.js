@@ -33,6 +33,19 @@ export default {
         return await httpClient.get({ url: 'envs/' + env + '/jobs/' + name, query: qs })
       }
       return await httpClient.get({ url: 'envs/' + env + '/jobs', query: qs })
+    },
+    watch (handler, env, name, qs) {
+      if (_.isObject(name)) {
+        qs = name
+        name = null
+      } else if (!qs) {
+        qs = {}
+      }
+      qs.watch = 'true'
+      if (name) {
+        return httpClient.ws({ url: 'envs/' + env + '/jobs/' + name, qs: qs, messageHandler: handler })
+      }
+      return httpClient.ws({ url: 'envs/' + env + '/jobs', qs: qs, messageHandler: handler })
     }
   },
 
@@ -77,6 +90,13 @@ export default {
       }
       return httpClient.ws({ url: 'envs/' + env + '/pods', qs: qs, messageHandler: handler })
     },
+    watchLog (handler, env, name, qs) {
+      if (!qs) {
+        qs = {}
+      }
+      qs.follow = 'true'
+      return httpClient.ws({ url: 'envs/' + env + '/pods/' + name + '/log', qs: qs, messageHandler: handler })
+    },
     async del (env, name) {
       return await httpClient.delete({ url: 'envs/' + env + '/pods/' + name })
     }
@@ -96,7 +116,7 @@ export default {
       }
       return await httpClient.post({ url: 'envs/' + env + '/deployments/' + deployment + '/rollouts', qs: qs, json: spec })
     },
-//    async setRollout (env, deployment, id, rollout) {
+//    async setRollout (env, deployment, id, rollout) { TODO remove
 //      return await httpClient.put({ url: 'envs/' + env + '/deployments/' + deployment + '/rollouts/' + id + '/rollout', json: rollout})
 //    },
     async resume (env, deployment, id) {
@@ -112,10 +132,7 @@ export default {
 
   runs: {
     async create (env, job, spec) {
-      const qs = {}
-      if (spec.trigger) {
-        qs.trigger = 'true'
-      }
+      const qs = {async: 'true'}
       return await httpClient.post({ url: 'envs/' + env + '/jobs/' + job + '/runs', qs: qs, json: spec })
     },
     async start (env, job, id) {

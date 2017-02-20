@@ -7,9 +7,10 @@ import (
 	"time"
 
 	"github.com/asaskevich/govalidator"
-	"gopkg.in/labstack/echo.v1"
+	echo "gopkg.in/labstack/echo.v1"
 
 	"github.com/airware/vili/firebase"
+	"github.com/airware/vili/log"
 	"github.com/airware/vili/session"
 	"github.com/airware/vili/slack"
 )
@@ -45,7 +46,7 @@ func releaseCreateHandler(c *echo.Context) error {
 	if release.URL != "" {
 		slackMessage += fmt.Sprintf(" - <%s|release notes>", release.URL)
 	}
-	err = slack.PostLogMessage(slackMessage, "info")
+	err = slack.PostLogMessage(slackMessage, log.InfoLevel)
 	if err != nil {
 		return err
 	}

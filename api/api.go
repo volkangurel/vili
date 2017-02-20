@@ -43,6 +43,7 @@ func AddHandlers(s *server.Server) {
 	// pods
 	s.Echo().Get(envPrefix+"pods", envMiddleware(podsHandler))
 	s.Echo().Get(envPrefix+"pods/:pod", envMiddleware(podHandler))
+	s.Echo().Get(envPrefix+"pods/:pod/log", envMiddleware(podLogHandler))
 	s.Echo().Delete(envPrefix+"pods/:pod", envMiddleware(podDeleteHandler))
 
 	// releases
@@ -69,5 +70,5 @@ func envMiddleware(h echo.HandlerFunc) echo.HandlerFunc {
 }
 
 func notFoundHandler(c *echo.Context) error {
-	return server.ErrorResponse(c, errors.NotFoundError(""))
+	return server.ErrorResponse(c, errors.NotFound(""))
 }

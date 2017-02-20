@@ -3,11 +3,12 @@ package kube
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/url"
 	"strings"
+	"time"
 
+	"github.com/airware/vili/errors"
 	"github.com/airware/vili/kube/extensions/v1beta1"
 	"github.com/airware/vili/kube/unversioned"
 	"github.com/airware/vili/kube/v1"
@@ -63,8 +64,9 @@ func (s *PodsService) ListForDeployment(env string, deployment *v1beta1.Deployme
 	for k, v := range deployment.Spec.Selector.MatchLabels {
 		selector = append(selector, fmt.Sprintf("%s=%s", k, v))
 	}
-	query := new(url.Values)
-	query.Add("labelSelector", strings.Join(selector, ","))
+	query := &url.Values{
+		"labelSelector": {strings.Join(selector, ",")},
+	}
 	return s.List(env, query)
 }
 
@@ -80,6 +82,14 @@ func (s *PodsService) Get(env, name string) (*v1.Pod, *unversioned.Status, error
 		return nil, status, err
 	}
 	return resp, nil, nil
+}
+
+// ListForJob fetches the list of pods in `env` for the given job
+func (s *PodsService) ListForJob(env, job string) (*v1.PodList, *unversioned.Status, error) {
+	query := &url.Values{
+		"labelSelector": {fmt.Sprintf("job=%s", job)},
+	}
+	return s.List(env, query)
 }
 
 // GetLog fetches the pod log in `env` with `name`
@@ -156,15 +166,15 @@ func (s *PodsService) DeleteForController(env string, controller *v1.Replication
 
 // PodEvent describes an event on a pod
 type PodEvent struct {
-	Type   string  `json:"type"`
-	Object *v1.Pod `json:"object"`
+	Type   WatchEventType `json:"type"`
+	Object *v1.Pod        `json:"object"`
 }
 
 // Watch watches the list of pods in `env`
-func (s *PodsService) Watch(env string, query *url.Values, eventChan chan<- *PodEvent, stopChan chan struct{}) error {
+func (s *PodsService) Watch(env string, query *url.Values, eventChan chan<- *PodEvent, stopChan chan struct{}) (bool, error) {
 	client, err := getClient(env)
 	if err != nil {
-		return invalidEnvError(env)
+		return false, invalidEnvError(env)
 	}
 	if query == nil {
 		query = &url.Values{}
@@ -174,23 +184,23 @@ func (s *PodsService) Watch(env string, query *url.Values, eventChan chan<- *Pod
 		pods := new(v1.PodList)
 		status, err := client.unmarshalRequest("GET", "pods", query, nil, pods)
 		if err != nil {
-			return err
+			return false, err
 		}
 		if status != nil {
-			return errors.New(status.Message)
+			return false, errors.BadRequest(status.Message)
 		}
 		for _, pod := range pods.Items {
 			p := pod
 			eventChan <- &PodEvent{
-				Type:   "INIT",
+				Type:   WatchEventInit,
 				Object: &p,
 			}
 		}
 		query.Set("resourceVersion", pods.ListMeta.ResourceVersion)
 	}
-	log.Infof("subscribing to pod events - %s - %v", env, query)
+	log.Debugf("subscribing to pods events - %s - %v", env, query)
 	// then watch for events starting from the resource version
-	return client.streamWatchRequest("pods", query, func(eventType string, body json.RawMessage) error {
+	return client.jsonStreamWatchRequest("pods", query, stopChan, func(eventType WatchEventType, body json.RawMessage) error {
 		event := &PodEvent{
 			Type:   eventType,
 			Object: new(v1.Pod),
@@ -201,5 +211,89 @@ func (s *PodsService) Watch(env string, query *url.Values, eventChan chan<- *Pod
 		}
 		eventChan <- event
 		return nil
-	}, stopChan)
+	})
+}
+
+// WatchPod watches a pod in `env`
+func (s *PodsService) WatchPod(env, name string, query *url.Values, eventChan chan<- *PodEvent, stopChan chan struct{}) (bool, error) {
+	client, err := getClient(env)
+	if err != nil {
+		return false, invalidEnvError(env)
+	}
+	if query == nil {
+		query = &url.Values{}
+	}
+	if query.Get("resourceVersion") == "" {
+		// get the current pod first
+		pod := new(v1.Pod)
+		status, err := client.unmarshalRequest("GET", "pods/"+name, query, nil, pod)
+		if err != nil {
+			return false, err
+		}
+		if status != nil {
+			return false, errors.BadRequest(status.Message)
+		}
+		eventChan <- &PodEvent{
+			Type:   WatchEventInit,
+			Object: pod,
+		}
+		query.Set("resourceVersion", pod.ObjectMeta.ResourceVersion)
+	}
+	log.Debugf("subscribing to pod events - %s - %s", env, name)
+	// then watch for events starting from the resource version
+	return client.jsonStreamWatchRequest("pods/"+name, query, stopChan, func(eventType WatchEventType, body json.RawMessage) error {
+		event := &PodEvent{
+			Type:   eventType,
+			Object: new(v1.Pod),
+		}
+		err = json.Unmarshal(body, event.Object)
+		if err != nil {
+			log.WithError(err).WithField("body", string(body)).Error("error parsing pod json")
+			return err
+		}
+		eventChan <- event
+		return nil
+	})
+}
+
+// WatchLog watches the log of the given pod in `env`
+func (s *PodsService) WatchLog(env, name string, query *url.Values, logChan chan<- string, stopChan chan struct{}) (bool, error) {
+	client, err := getClient(env)
+	if err != nil {
+		return false, invalidEnvError(env)
+	}
+	// first get pod to make sure it's valid
+	ready := false
+	for i := 0; i < 10; i++ {
+		pod, status, err := s.Get(env, name)
+		if err != nil {
+			return false, err
+		}
+		if status != nil {
+			return false, errors.BadRequest(status.Message)
+		}
+		if pod.Status.Phase == v1.PodRunning ||
+			pod.Status.Phase == v1.PodSucceeded ||
+			pod.Status.Phase == v1.PodFailed {
+			ready = true
+			break
+		}
+		time.Sleep(time.Second)
+	}
+
+	if !ready {
+		return false, errors.BadRequest("pod wasn't ready")
+	}
+
+	// then get log
+	log.Debugf("subscribing to pod log - %s - %s", env, name)
+	if query == nil {
+		query = &url.Values{}
+	}
+	query.Set("follow", "true")
+
+	return client.streamWatchRequest("pods/"+name+"/log", query, stopChan, func(b []byte) error {
+		logChan <- string(b)
+		return nil
+	})
 }

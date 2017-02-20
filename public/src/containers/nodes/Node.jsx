@@ -1,17 +1,20 @@
 import React from 'react'
+import { connect } from 'react-redux'
 import { Link } from 'react-router'
 import _ from 'underscore'
-import { Promise } from 'bluebird'
-import { viliApi, displayTime } from '../lib'
-import Table from '../components/Table'
-import Loading from '../components/Loading'
 
-export class Node extends React.Component {
-  constructor (props) {
-    super(props)
-    this.state = {}
-    this.loadData = this.loadData.bind(this)
+import Loading from '../../components/Loading'
+import { activateNav } from '../../actions/app'
+import { subNode, unsubNode, deleteNode } from '../../actions/nodes'
+
+function mapStateToProps (state) {
+  return {
+    nodes: state.nodes.toJS()
   }
+}
+
+@connect(mapStateToProps)
+export default class Node extends React.Component {
 
   render () {
     var header = (
@@ -31,8 +34,8 @@ export class Node extends React.Component {
         </div>
       )
     }
-    var self = this
-    var columns = _.union([
+    const self = this
+    const columns = _.union([
             {title: 'Name', key: 'name'},
             {title: 'App', key: 'app'},
             {title: 'Pod IP', key: 'pod_ip'},
@@ -40,7 +43,7 @@ export class Node extends React.Component {
             {title: 'Phase', key: 'phase'}
     ])
 
-    var rows = _.map(this.state.nodePods.items, function (pod) {
+    const rows = _.map(this.state.nodePods.items, function (pod) {
       var app = null
       if (pod.metadata.labels && pod.metadata.labels) {
         app = <Link to={`/${self.props.params.env}/apps/${pod.metadata.labels.app}`}>{pod.metadata.labels.app}</Link>

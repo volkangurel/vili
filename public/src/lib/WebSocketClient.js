@@ -16,17 +16,21 @@ export default class WebSocketClient {
   startWebSocket () {
     const self = this
     this.ws = new WebSocket(this.url)
-    this.ws.onmessage = this.messageHandler
-    this.ws.onclose = function () {
+    this.ws.onmessage = function (event) {
+      const data = JSON.parse(event.data)
+      if (data.type === 'CLOSED') {
+        self.close()
+      } else {
+        self.messageHandler(data)
+      }
+    }
+    this.ws.onclose = function (event) {
       if (!self.closed) {
         setTimeout(function () {
           self.startWebSocket()
         }, 5000)
       }
     }
-    // ws.onerror = function (event) {
-    //   console.log(event)
-    // }
   }
 
   close () {

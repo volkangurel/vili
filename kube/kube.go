@@ -6,7 +6,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -18,6 +17,7 @@ import (
 	"time"
 
 	"github.com/airware/vili/config"
+	"github.com/airware/vili/errors"
 	"github.com/airware/vili/kube/unversioned"
 	"github.com/airware/vili/log"
 )
@@ -220,19 +220,25 @@ type client struct {
 	namespace           string
 }
 
-func (c *client) createRequest(method, path string, query *url.Values, body io.Reader) (*http.Request, error) {
+func (c *client) createRequest(method, path string, query *url.Values, body io.Reader, watch bool) (*http.Request, error) {
 	// get url string
 	apiBase := fmt.Sprintf("%s/api/v1/", c.url)
-	if strings.HasPrefix(path, "deployments") || strings.HasPrefix(path, "replicasets") {
+	if strings.HasPrefix(path, "deployments") ||
+		strings.HasPrefix(path, "jobs") ||
+		strings.HasPrefix(path, "replicasets") {
 		apiBase = fmt.Sprintf("%s/apis/extensions/v1beta1/", c.url)
 	}
 	if !strings.HasPrefix(path, "namespace") && !strings.HasPrefix(path, "node") {
 		path = fmt.Sprintf("namespaces/%s/%s", c.namespace, path)
 	}
+	if watch && !strings.HasSuffix(path, "/log") {
+		path = "watch/" + path
+	}
 	urlStr := apiBase + path
 	if query != nil {
 		urlStr += "?" + query.Encode()
 	}
+	log.WithField("url", urlStr).Debug("making kubernetes request")
 
 	// create request
 	req, err := http.NewRequest(method, urlStr, body)
@@ -250,7 +256,7 @@ func (c *client) createRequest(method, path string, query *url.Values, body io.R
 
 func (c *client) getRequestBytes(method, path string, query *url.Values, body io.Reader) (respBody []byte, respStatus *unversioned.Status, err error) {
 	// create request
-	req, err := c.createRequest(method, path, query, body)
+	req, err := c.createRequest(method, path, query, body, false)
 	if err != nil {
 		return
 	}
@@ -293,61 +299,55 @@ func (c *client) unmarshalRequest(method, path string, query *url.Values, body i
 	return
 }
 
+// WatchEventType describes an event type
+type WatchEventType string
+
+// Possible values of WatchEventType
+const (
+	WatchEventInit     WatchEventType = "INIT"
+	WatchEventAdded    WatchEventType = "ADDED"
+	WatchEventModified WatchEventType = "MODIFIED"
+	WatchEventDeleted  WatchEventType = "DELETED"
+	WatchEventError    WatchEventType = "ERROR"
+)
+
 // WatchEvent describes an event
 type WatchEvent struct {
-	Type   string          `json:"type"`
+	Type   WatchEventType  `json:"type"`
 	Object json.RawMessage `json:"object"`
 }
 
-func (c *client) streamWatchRequest(path string, query *url.Values, processEvent func(string, json.RawMessage) error, stopChan chan struct{}) error {
-	if query == nil {
-		query = new(url.Values)
-	}
-	query.Set("watch", "true")
+func (c *client) streamWatchRequest(path string, query *url.Values, stopChan chan struct{}, processEvent func([]byte) error) (cleanExit bool, err error) {
 	// create request
-	req, err := c.createRequest("GET", path, query, nil)
+	req, err := c.createRequest("GET", path, query, nil, true)
 	if err != nil {
-		return err
+		return
 	}
 
 	// send request
 	resp, err := c.httpClientNoTimeout.Do(req)
 	if err != nil {
-		return err
+		return
 	}
 	defer resp.Body.Close()
 
 	// read lines in goroutine
-	var watchErr error
 	watchChan := make(chan struct{})
 	go func() {
 		scanner := bufio.NewScanner(resp.Body)
-		event := new(WatchEvent)
 		for scanner.Scan() {
-			err = json.Unmarshal(scanner.Bytes(), event)
+			err = processEvent(scanner.Bytes())
 			if err != nil {
-				watchErr = err
-				log.WithError(err).Error("error parsing watch response")
-				return
-			}
-			if event.Type == "ERROR" {
-				status := new(unversioned.Status)
-				err = json.Unmarshal(event.Object, status)
-				if err == nil {
-					err = errors.New(status.Message)
-				}
-				watchErr = err
-				log.WithError(err).Error("error event from watch response")
-				return
-			}
-			err = processEvent(event.Type, event.Object)
-			if err != nil {
-				watchErr = err
 				log.WithError(err).Error("error processing watch response")
 				return
 			}
 		}
-		log.Info("stopped watch loop")
+		err = scanner.Err()
+		if err != nil {
+			log.WithError(scanner.Err()).Error("watch loop exited with error")
+		} else {
+			cleanExit = true
+		}
 		close(watchChan)
 	}()
 
@@ -356,15 +356,36 @@ func (c *client) streamWatchRequest(path string, query *url.Values, processEvent
 	case <-stopChan:
 		break
 	case <-watchChan:
-		// TODO retry http queries
 		break
 	case <-ExitingChan:
 		break
 	}
-	log.Info("stopped stream request")
-	return watchErr
+	return
+}
+
+func (c *client) jsonStreamWatchRequest(path string, query *url.Values, stopChan chan struct{}, processEvent func(WatchEventType, json.RawMessage) error) (bool, error) {
+	return c.streamWatchRequest(path, query, stopChan, func(b []byte) error {
+		event := new(WatchEvent)
+		err := json.Unmarshal(b, event)
+		if err != nil {
+			log.WithError(err).Error("error parsing watch response")
+			return err
+		}
+		if event.Type == "" || len(event.Object) == 0 {
+			return nil
+		} else if event.Type == WatchEventError {
+			status := new(unversioned.Status)
+			err = json.Unmarshal(event.Object, status)
+			if err == nil {
+				err = errors.BadRequest(status.Message)
+			}
+			log.WithError(err).Error("error event from watch response")
+			return err
+		}
+		return processEvent(event.Type, event.Object)
+	})
 }
 
 func invalidEnvError(env string) error {
-	return fmt.Errorf("Invalid environment %s", env)
+	return errors.BadRequest(fmt.Sprintf("Invalid environment %s", env))
 }

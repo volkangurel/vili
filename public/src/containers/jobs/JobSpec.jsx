@@ -36,7 +36,7 @@ export default class JobSpec extends React.Component {
       <div className='col-md-8'>
         <div id='source-yaml'>
           <pre><code>
-            {job.podSpec}
+            {job.jobSpec}
           </code></pre>
         </div>
       </div>

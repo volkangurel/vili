@@ -1,11 +1,9 @@
-import { push } from 'react-router-redux'
-
 import * as Constants from '../constants'
 
-export function getJobs (env, name, qs) {
+export function getNodes (env, name, qs) {
   return async function (dispatch, getState, api) {
-    dispatch({ type: Constants.GET_JOBS })
-    const { results, error } = await api.jobs.get(env, name, qs)
+    dispatch({ type: Constants.GET_NODES })
+    const { results, error } = await api.nodes.get(env, name, qs)
 
     if (error) {
       // TODO
@@ -16,33 +14,30 @@ export function getJobs (env, name, qs) {
       return false
     }
 
-    dispatch(setJobs(env, name, results))
+    dispatch(setNodes(env, name, results))
     return true
   }
 }
 
-export function setJobs (env, name, results) {
-  var jobs = {}
+export function setNodes (env, name, results) {
+  var nodes = {}
   if (name) {
-    jobs[name] = results
+    nodes[name] = results
   } else {
-    jobs = results.jobs
+    nodes = results.nodes
   }
   return {
-    type: Constants.SET_JOBS,
+    type: Constants.SET_NODES,
     payload: {
       env: env,
-      jobs: jobs
+      nodes: nodes
     }
   }
 }
 
-export function runJob (env, name, tag, branch) {
+export function setNodeSchedulable (env, name, status) {
   return async function (dispatch, getState, api) {
-    const { results, error } = await api.runs.create(env, name, {
-      tag: tag,
-      branch: branch
-    })
+    const { error } = await api.nodes.setSchedulable(env, name, status)
 
     if (error) {
       // TODO
@@ -52,8 +47,6 @@ export function runJob (env, name, tag, branch) {
          }) */
       return false
     }
-
-    dispatch(push(`/${env}/jobs/${name}/runs/${results.job.metadata.name}`))
     return true
   }
 }

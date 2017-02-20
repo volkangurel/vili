@@ -8,7 +8,7 @@ import (
 	"github.com/airware/vili/errors"
 	"github.com/airware/vili/kube"
 	"github.com/airware/vili/server"
-	"gopkg.in/labstack/echo.v1"
+	echo "gopkg.in/labstack/echo.v1"
 )
 
 var nodesQueryParams = []string{"labelSelector", "fieldSelector"}
@@ -55,7 +55,7 @@ func nodeStateEditHandler(c *echo.Context) error {
 	} else if state == "disable" {
 		unschedulable = true
 	} else {
-		return server.ErrorResponse(c, errors.BadRequestError(fmt.Sprintf("Invalid state for node: %s", state)))
+		return server.ErrorResponse(c, errors.BadRequest(fmt.Sprintf("Invalid state for node: %s", state)))
 	}
 
 	resp, err := kube.Nodes.PatchUnschedulable(env, node, unschedulable)

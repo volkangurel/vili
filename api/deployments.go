@@ -231,7 +231,7 @@ func deploymentCreateServiceHandler(c *echo.Context) error {
 	}
 
 	if currentService != nil {
-		return server.ErrorResponse(c, errors.ConflictError("Service exists"))
+		return server.ErrorResponse(c, errors.Conflict("Service exists"))
 	}
 	deployment := &v1beta1.Deployment{}
 	deploymentTemplate.Parse(deployment)
@@ -290,7 +290,7 @@ func deploymentActionHandler(c *echo.Context) (err error) {
 		return err
 	}
 	if status != nil {
-		return server.ErrorResponse(c, errors.BadRequestError(
+		return server.ErrorResponse(c, errors.BadRequest(
 			fmt.Sprintf("Deployment %s not found", deploymentName)))
 	}
 
@@ -322,7 +322,7 @@ func deploymentActionHandler(c *echo.Context) (err error) {
 		})
 	case deploymentActionScale:
 		if actionRequest.Replicas == nil {
-			return server.ErrorResponse(c, errors.BadRequestError("Replicas missing from scale request"))
+			return server.ErrorResponse(c, errors.BadRequest("Replicas missing from scale request"))
 		}
 		resp, _, err = kube.Deployments.Scale(env, deploymentName, &v1beta1.Scale{
 			Spec: v1beta1.ScaleSpec{
@@ -331,7 +331,7 @@ func deploymentActionHandler(c *echo.Context) (err error) {
 		})
 
 	default:
-		return server.ErrorResponse(c, errors.NotFoundError(fmt.Sprintf("Action %s not found", action)))
+		return server.ErrorResponse(c, errors.NotFound(fmt.Sprintf("Action %s not found", action)))
 	}
 	if err != nil {
 		return err
