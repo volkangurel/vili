@@ -5,14 +5,15 @@ import _ from 'underscore'
 
 import displayTime from '../../lib/displayTime'
 import Table from '../../components/Table'
+import Loading from '../../components/Loading'
 import { activateJobTab } from '../../actions/app'
 import { getJobs } from '../../actions/jobs'
-// import { subJobRuns, unsubJobRuns } from '../../actions/jobRuns'
+import { deleteJobRun } from '../../actions/jobRuns'
 // import { deletePod } from '../../actions/pods'
 
 function mapStateToProps (state) {
   return {
-    jobRuns: state.jobRuns.toJS()
+    jobs: state.jobs.toJS()
   }
 }
 
@@ -20,11 +21,11 @@ function mapStateToProps (state) {
 export default class JobRuns extends React.Component {
 
   subData = () => {
-    this.props.dispatch(subJobRuns(this.props.params.env, this.props.params.job))
+    this.props.dispatch(getJobs(this.props.params.env, this.props.params.job))
   }
 
   unsubData = () => {
-    this.props.dispatch(unsubJobRuns(this.props.params.env, this.props.params.job))
+    this.props.dispatch(getJobs(this.props.params.env, this.props.params.job))
   }
 
   componentDidMount () {
@@ -45,12 +46,14 @@ export default class JobRuns extends React.Component {
 
   render () {
     const self = this
-    const jobRuns = this.props.jobRuns
-    const runs = (jobRuns.envs &&
-      jobRuns.envs[this.props.params.env] &&
-      jobRuns.envs[this.props.params.env][this.props.params.job]) ||
-      []
-    const sortedRuns = _.sortBy(runs, (x) => -(new Date(x.metadata.creationTimestamp)))
+    const jobs = this.props.jobs
+    const job = (jobs.envs &&
+      jobs.envs[this.props.params.env] &&
+      jobs.envs[this.props.params.env][this.props.params.job])
+    if (jobs.isFetching || !job) {
+      return (<Loading />)
+    }
+    const sortedRuns = _.sortBy(job.jobList.items, (x) => -(new Date(x.metadata.creationTimestamp)))
     const columns = [
       {title: 'Run', key: 'run'},
       {title: 'Tag', key: 'tag'},
@@ -80,7 +83,7 @@ export default class JobRuns extends React.Component {
 class Row extends React.Component {
 
   render () {
-    const { env, job, jobRun} = this.props
+    const { env, job, jobRun } = this.props
     const tag = jobRun.spec.template.spec.containers[0].image.split(':')[1]
     const startTime = new Date(jobRun.status.startTime)
     const completionTime = new Date(jobRun.status.completionTime)
@@ -103,14 +106,14 @@ class Row extends React.Component {
         <td data-column='completiontime'>{displayTime(completionTime)}</td>
         <td data-column='status'>{status}</td>
         <td data-column='actions'>
-          <button type='button' className='btn btn-xs btn-danger' onClick={this.deletePod}>Delete</button>
+          <button type='button' className='btn btn-xs btn-danger' onClick={this.deleteJobRun}>Delete</button>
         </td>
       </tr>
     )
   }
 
-  deletePod = () => {
-    this.props.dispatch(deletePod(this.props.env, this.props.pod.metadata.name))
+  deleteJobRun = () => {
+    this.props.dispatch(deleteJobRun(this.props.env, this.props.jobRun.metadata.name))
   }
 
 }

@@ -33,6 +33,7 @@ func AddHandlers(s *server.Server) {
 	// jobs
 	s.Echo().Get(envPrefix+"jobs/:job", envMiddleware(jobGetHandler))
 	s.Echo().Post(envPrefix+"jobs/:job/runs", envMiddleware(jobRunCreateHandler))
+	s.Echo().Get(envPrefix+"jobs/:job/runs", envMiddleware(jobRunsGetHandler))
 	// s.Echo().Post(envPrefix+"jobs/:job/runs/:run/:action", envMiddleware(jobRunActionHandler))
 
 	// nodes
@@ -42,7 +43,7 @@ func AddHandlers(s *server.Server) {
 
 	// pods
 	s.Echo().Get(envPrefix+"pods", envMiddleware(podsHandler))
-	s.Echo().Get(envPrefix+"pods/:pod", envMiddleware(podHandler))
+	// s.Echo().Get(envPrefix+"pods/:pod", envMiddleware(podHandler))
 	s.Echo().Get(envPrefix+"pods/:pod/log", envMiddleware(podLogHandler))
 	s.Echo().Delete(envPrefix+"pods/:pod", envMiddleware(podDeleteHandler))
 

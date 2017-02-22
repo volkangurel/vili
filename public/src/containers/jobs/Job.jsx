@@ -11,7 +11,6 @@ import { getJobs, runJob } from '../../actions/jobs'
 
 function mapStateToProps (state) {
   return {
-    app: state.app.toJS(),
     jobs: state.jobs.toJS()
   }
 }

@@ -49,3 +49,19 @@ export function changeJobRun (env, name, event) {
     }
   }
 }
+
+export function deleteJobRun (env, name) {
+  return async function (dispatch, getState, api) {
+    const { error } = await api.jobs.del(env, name)
+
+    if (error) {
+      // TODO
+      /* window.app.snackbar.makeDismissableToast({
+         message: error.message,
+         level: window.app.snackbar.Level.WARNING
+         }) */
+      return false
+    }
+    return true
+  }
+}

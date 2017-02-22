@@ -39,7 +39,6 @@ export default class DeploymentRollout extends React.Component {
   }
 
   render () {
-    console.log(this.props)
     const self = this
     const deployment = this.deployment
     if (!this.deployment) {
@@ -74,22 +73,22 @@ export default class DeploymentRollout extends React.Component {
     console.log(toPods)
 
     return (
-      <div className="rollout">
+      <div className='rollout'>
         <DeploymentHeader
           env={this.props.params.env}
           deployment={this.props.params.deployment}
           rollout={this.props.params.rollout}
         />
-        <div className="row">
+        <div className='row'>
           <RolloutPods
-            title="From"
+            title='From'
             env={this.props.params.env}
             deployment={deployment}
             rollout={this.props.params.rollout}
             pods={fromPods}
           />
           <RolloutPods
-            title="To"
+            title='To'
             env={this.props.params.env}
             deployment={deployment}
             rollout={this.props.params.rollout}

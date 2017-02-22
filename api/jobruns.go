@@ -3,8 +3,13 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"net/url"
+	"sync"
 	"time"
+
+	"golang.org/x/net/websocket"
 
 	"github.com/airware/vili/config"
 	"github.com/airware/vili/docker"
@@ -23,6 +28,72 @@ const (
 	jobRunTimeout    = 5 * time.Minute
 	jobRunPollPeriod = 1 * time.Second
 )
+
+var (
+	jobRunsQueryParams = []string{"labelSelector", "fieldSelector", "resourceVersion"}
+)
+
+func jobRunsGetHandler(c *echo.Context) error {
+	env := c.Param("env")
+	job := c.Param("job")
+	query := filterQueryFields(c, jobRunsQueryParams)
+
+	labelSelector := query.Get("labelSelector")
+	if labelSelector != "" {
+		labelSelector += ","
+	}
+	labelSelector += "job=" + job
+	query.Set("labelSelector", labelSelector)
+
+	if c.Request().URL.Query().Get("watch") != "" {
+		// watch jobs and return over websocket
+		var err error
+		websocket.Handler(func(ws *websocket.Conn) {
+			err = jobRunsWatchHandler(ws, env, query)
+			ws.Close()
+		}).ServeHTTP(c.Response(), c.Request())
+		return err
+	}
+
+	// otherwise, return the pods list
+	resp, _, err := kube.Jobs.List(env, query)
+	if err != nil {
+		return err
+	}
+	return c.JSON(http.StatusOK, resp)
+}
+
+func jobRunsWatchHandler(ws *websocket.Conn, env string, query *url.Values) error {
+	stopChan := make(chan struct{})
+	eventChan := make(chan *kube.JobEvent)
+	var waitGroup sync.WaitGroup
+
+	go func() {
+		var cmd interface{}
+		err := websocket.JSON.Receive(ws, cmd)
+		if err == io.EOF {
+			close(stopChan)
+		}
+	}()
+	waitGroup.Add(1)
+	go func() {
+		defer waitGroup.Done()
+		for podEvent := range eventChan {
+			err := websocket.JSON.Send(ws, podEvent)
+			if err != nil {
+				log.WithError(err).Error("error writing to pods stream")
+			}
+		}
+	}()
+
+	cleanExit, err := kube.Jobs.Watch(env, query, eventChan, stopChan)
+	close(eventChan)
+	waitGroup.Wait()
+	if cleanExit {
+		websocket.JSON.Send(ws, webSocketCloseMessage)
+	}
+	return err
+}
 
 func jobRunCreateHandler(c *echo.Context) error {
 	env := c.Param("env")
@@ -174,7 +245,9 @@ func (r *JobRun) watchJob() error {
 	}()
 	// TODO set up timeout
 
-	_, err := kube.Jobs.WatchJob(r.Env, r.Job.ObjectMeta.Name, nil, eventChan, stopChan)
+	_, err := kube.Jobs.Watch(r.Env, &url.Values{
+		"fieldSelector": {"metadata.name=" + r.Job.ObjectMeta.Name},
+	}, eventChan, stopChan)
 	return err
 }
 

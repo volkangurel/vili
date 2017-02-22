@@ -89,8 +89,8 @@ type JobEvent struct {
 	Object *v1beta1.Job   `json:"object"`
 }
 
-// WatchJob watches a job in `env`
-func (s *JobsService) WatchJob(env, name string, query *url.Values, eventChan chan<- *JobEvent, stopChan chan struct{}) (bool, error) {
+// Watch watches jobs in `env`
+func (s *JobsService) Watch(env string, query *url.Values, eventChan chan<- *JobEvent, stopChan chan struct{}) (bool, error) {
 	client, err := getClient(env)
 	if err != nil {
 		return false, invalidEnvError(env)
@@ -101,7 +101,7 @@ func (s *JobsService) WatchJob(env, name string, query *url.Values, eventChan ch
 	if query.Get("resourceVersion") == "" {
 		// get the current job first
 		job := new(v1beta1.Job)
-		status, err := client.unmarshalRequest("GET", "jobs/"+name, query, nil, job)
+		status, err := client.unmarshalRequest("GET", "jobs", query, nil, job)
 		if err != nil {
 			return false, err
 		}
@@ -114,9 +114,9 @@ func (s *JobsService) WatchJob(env, name string, query *url.Values, eventChan ch
 		}
 		query.Set("resourceVersion", job.ObjectMeta.ResourceVersion)
 	}
-	log.Debugf("subscribing to job events - %s - %s", env, name)
+	log.Debugf("subscribing to job events - %s", env)
 	// then watch for events starting from the resource version
-	return client.jsonStreamWatchRequest("jobs/"+name, query, stopChan, func(eventType WatchEventType, body json.RawMessage) error {
+	return client.jsonStreamWatchRequest("jobs", query, stopChan, func(eventType WatchEventType, body json.RawMessage) error {
 		event := &JobEvent{
 			Type:   eventType,
 			Object: new(v1beta1.Job),
