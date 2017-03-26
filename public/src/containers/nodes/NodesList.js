@@ -93,7 +93,8 @@ export default class NodesList extends React.Component {
       if (node.spec.unschedulable === true) {
         actions = (
           <Button bsStyle='success' bsSize='xs'
-            onClick={self.setNodeSchedulable.bind(self, name, 'enable')}>
+            onClick={self.setNodeSchedulable.bind(self, name, 'enable')}
+          >
             Enable
           </Button>
         )
@@ -101,7 +102,8 @@ export default class NodesList extends React.Component {
       } else {
         actions = (
           <Button bsStyle='danger' bsSize='xs'
-            onClick={self.setNodeSchedulable.bind(self, name, 'disable')}>
+            onClick={self.setNodeSchedulable.bind(self, name, 'disable')}
+          >
             Disable
           </Button>
         )

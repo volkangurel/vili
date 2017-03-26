@@ -30,7 +30,8 @@ export default class App extends React.Component {
     return (
       <div className='top-nav container-fluid full-height'>
         <TopNav user={this.props.user} location={this.props.location}
-          envs={this.props.envs} env={env} />
+          envs={this.props.envs} env={env}
+        />
         <div className='page-wrapper'>
           <div className='sidebar'>
             <SideNav env={env} nav={this.props.app.nav} />

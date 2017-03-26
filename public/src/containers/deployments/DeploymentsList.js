@@ -147,7 +147,7 @@ export default class DeploymentsList extends React.Component {
               env={env}
               name={deploymentName}
               replicaSet={deployment && deployment.replicaSet}
-           />)
+            />)
         }
       }
     )

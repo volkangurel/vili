@@ -8,7 +8,7 @@ import displayTime from '../../lib/displayTime'
 import Table from '../../components/Table'
 import Loading from '../../components/Loading'
 import { activateNav } from '../../actions/app'
-//import { getJobs } from '../../actions/jobs'
+// import { getJobs } from '../../actions/jobs'
 
 class Row extends React.Component {
 
@@ -116,7 +116,7 @@ export default class JobsList extends React.Component {
             <Row key={'row-' + jobName}
               env={env}
               name={jobName}
-           />)
+            />)
         }
       }
     )

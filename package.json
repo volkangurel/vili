@@ -7,8 +7,8 @@
     "build:clean": "rimraf ./public/build/",
     "build": "webpack --config ./public/webpack.config.js",
     "watch": "npm run build -- --progress --colors --watch",
-    "lint": "standard  \"./public/**/*.{js,jsx}\" | snazzy",
-    "lint:fix": "standard  \"./public/**/*.{js,jsx}\" --fix | snazzy"
+    "lint": "node_modules/.bin/eslint \"./public/src/**/*.js\" | snazzy",
+    "lint:fix": "node_modules/.bin/eslint \"./public/src/**/*.js\" --fix | snazzy"
   },
   "repository": {
     "type": "git",
@@ -54,8 +54,13 @@
     "cross-env": "2.0.0",
     "css-loader": "0.23.1",
     "enzyme": "2.4.1",
-    "eslint": "3.2.2",
-    "eslint-plugin-react": "4.2.3",
+    "eslint": "3.12.2",
+    "eslint-config-standard": "6.2.1",
+    "eslint-config-standard-react": "4.2.0",
+    "eslint-plugin-import": "2.2.0",
+    "eslint-plugin-promise": "3.4.0",
+    "eslint-plugin-react": "6.8.0",
+    "eslint-plugin-standard": "2.0.1",
     "expect": "1.20.2",
     "file-loader": "0.8.5",
     "handlebars-loader": "1.3.0",
@@ -74,8 +79,5 @@
     "style-loader": "0.13.0",
     "url-loader": "0.5.7",
     "webpack": "1.12.14"
-  },
-  "standard": {
-    "parser": "babel-eslint"
   }
 }

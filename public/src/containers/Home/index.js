@@ -28,14 +28,14 @@ export default class Home extends React.Component {
     var links = this.props.envs.map(function (env) {
       return <li key={env.name}><Link to={`/${env.name}`}>{env.name}</Link></li>
     })
-    return <div>
+    return (<div>
       <div className='view-header'>
         <ol className='breadcrumb'>
           <li className='active'>Select Environment</li>
         </ol>
       </div>
       <ul className='nav nav-pills nav-stacked'>{links}</ul>
-    </div>
+    </div>)
   }
 
   get renderLoggedOut () {

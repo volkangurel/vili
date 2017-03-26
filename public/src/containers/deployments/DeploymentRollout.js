@@ -45,10 +45,10 @@ export default class DeploymentRollout extends React.Component {
       return (<Loading />)
     }
 
-    const fromRollout = _.find(deployment.rolloutHistory, function(rollout) {
+    const fromRollout = _.find(deployment.rolloutHistory, function (rollout) {
       return rollout.metadata.annotations['deployment.kubernetes.io/revision'] === self.props.location.query.from
     })
-    const toRollout = _.find(deployment.rolloutHistory, function(rollout) {
+    const toRollout = _.find(deployment.rolloutHistory, function (rollout) {
       return rollout.metadata.annotations['deployment.kubernetes.io/revision'] === self.props.params.rollout
     })
 
@@ -60,12 +60,12 @@ export default class DeploymentRollout extends React.Component {
 
     var fromPods
     if (fromRollout) {
-      fromPods = _.filter(pods, function(pod) {
+      fromPods = _.filter(pods, function (pod) {
         return pod.metadata.generateName === (fromRollout.metadata.name + '-')
       })
     }
 
-    const toPods = _.filter(pods, function(pod) {
+    const toPods = _.filter(pods, function (pod) {
       return pod.metadata.generateName === (toRollout.metadata.name + '-')
     })
 
@@ -131,49 +131,49 @@ class DeploymentHeader extends React.Component {
     switch (this.props.state) {
       case 'new':
         buttons = [
-          <Button bsStyle="success" onClick={this.deploy} disabled={this.state.disabled}>Deploy</Button>
+          <Button bsStyle='success' onClick={this.deploy} disabled={this.state.disabled}>Deploy</Button>
         ]
         break
       case 'running':
         buttons = [
-          <Button bsStyle="warning" onClick={this.pause} disabled={this.state.disabled}>Pause</Button>,
+          <Button bsStyle='warning' onClick={this.pause} disabled={this.state.disabled}>Pause</Button>
         ]
         break
       case 'pausing':
         buttons = [
-          <Button bsStyle="warning" disabled={true}>Pausing...</Button>,
-          <Button bsStyle="warning" onClick={this.pause} disabled={this.state.disabled}>Force Pause</Button>,
+          <Button bsStyle='warning' disabled>Pausing...</Button>,
+          <Button bsStyle='warning' onClick={this.pause} disabled={this.state.disabled}>Force Pause</Button>
         ]
         break
       case 'paused':
         buttons = [
-          <Button bsStyle="success" onClick={this.deploy} disabled={this.state.disabled}>Resume</Button>,
-          <Button bsStyle="danger" onClick={this.rollback} disabled={this.state.disabled}>Rollback</Button>,
+          <Button bsStyle='success' onClick={this.deploy} disabled={this.state.disabled}>Resume</Button>,
+          <Button bsStyle='danger' onClick={this.rollback} disabled={this.state.disabled}>Rollback</Button>
         ]
         break
       case 'rollingback':
         buttons = [
-          <Button bsStyle="danger" disabled={true}>Rolling Back...</Button>,
+          <Button bsStyle='danger' disabled>Rolling Back...</Button>
         ]
         break
       case 'rolledback':
-        banner = (<Alert bsStyle="danger">Rolled back</Alert>)
+        banner = (<Alert bsStyle='danger'>Rolled back</Alert>)
         break
       case 'completed':
-        banner = (<Alert bsStyle="success">Deployment complete</Alert>)
+        banner = (<Alert bsStyle='success'>Deployment complete</Alert>)
         break
     }
 
     return (
-      <div className="deployment-header">
+      <div className='deployment-header'>
         {banner}
-        <div className="row">
-          <div className="col-md-offset-8 col-md-4">
-            <ButtonGroup className="pull-right">
+        <div className='row'>
+          <div className='col-md-offset-8 col-md-4'>
+            <ButtonGroup className='pull-right'>
               {buttons}
             </ButtonGroup>
           </div>
-          <div className="col-md-2">
+          <div className='col-md-2'>
             <Clock />
           </div>
         </div>
@@ -201,7 +201,7 @@ class DeploymentHeader extends React.Component {
 class Clock extends React.Component {
   render () {
     return (
-      <div className="deploy-clock">
+      <div className='deploy-clock'>
         {moment.duration(this.props.val || 0).format('m[m]:ss[s]')}
       </div>
     )
@@ -217,7 +217,7 @@ class RolloutPods extends React.Component {
       {title: 'Created', key: 'created'},
       {title: 'Phase', key: 'phase'},
       {title: 'Ready', key: 'ready'},
-      {title: 'Host', key: 'host'},
+      {title: 'Host', key: 'host'}
     ]
 
     /*
@@ -237,9 +237,9 @@ class RolloutPods extends React.Component {
     const desiredReplicas = parseInt(this.props.deployment.replicaSet.metadata.annotations['deployment.kubernetes.io/desired-replicas'])
     var readyCount = 0
 
-    const rows = _.map(this.props.pods, function(pod) {
+    const rows = _.map(this.props.pods, function (pod) {
       const ready = pod.status.phase === 'Running' &&
-        _.every(pod.status.containerStatuses, function(cs) {
+        _.every(pod.status.containerStatuses, function (cs) {
           return cs.ready
         })
       if (ready) {
@@ -250,7 +250,7 @@ class RolloutPods extends React.Component {
         created: displayTime(new Date(pod.metadata.creationTimestamp)),
         phase: pod.status.phase,
         ready: ready ? String.fromCharCode('10003') : '',
-        host: (<Link to={`/${self.props.env}/nodes/${pod.spec.nodeName}`}>{pod.spec.nodeName}</Link>),
+        host: (<Link to={`/${self.props.env}/nodes/${pod.spec.nodeName}`}>{pod.spec.nodeName}</Link>)
       }
     })
 
@@ -259,13 +259,13 @@ class RolloutPods extends React.Component {
         rows.push({
           _className: 'text-muted',
           name: '-',
-          phase: 'Deleted',
+          phase: 'Deleted'
         })
       }
     }
 
     return (
-      <div className="col-md-6">
+      <div className='col-md-6'>
         <h3>{`${this.props.title} Pods (${readyCount}/${desiredReplicas})`}</h3>
         <Table columns={columns} rows={rows} />
       </div>
@@ -273,24 +273,23 @@ class RolloutPods extends React.Component {
   }
 }
 
-
 class Logs extends React.Component {
 
   render () {
     const columns = [
       {title: 'Time', key: 'time'},
-      {title: 'Message', key: 'message'},
+      {title: 'Message', key: 'message'}
     ]
 
-    const rows = _.map(this.props.log, function(item) {
+    const rows = _.map(this.props.log, function (item) {
       return {
         time: moment(new Date(item.time)).format('YYYY-MM-DD HH:mm:ss'),
-        message: item.msg,
+        message: item.msg
       }
     })
     rows.reverse()
     return (
-      <div className="logs">
+      <div className='logs'>
         <h3>Log</h3>
         <Table columns={columns} rows={rows} />
       </div>

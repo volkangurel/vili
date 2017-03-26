@@ -25,7 +25,7 @@ class WebpackConfig {
 
   get resolve () {
     return {
-      extensions: ['', '.js', '.jsx', '.json']
+      extensions: ['', '.js', '.json']
     }
   }
 

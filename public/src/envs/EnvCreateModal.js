@@ -34,7 +34,8 @@ export class EnvCreateModal extends React.Component {
         <Button
           bsStyle='primary'
           onClick={this.createNewEnvironment}
-          disabled={!this.state.spec || Boolean(this.state.error)}>
+          disabled={!this.state.spec || Boolean(this.state.error)}
+        >
                     Create
                 </Button>
             )
@@ -42,7 +43,8 @@ export class EnvCreateModal extends React.Component {
       actionButton = (
         <Button
           bsStyle='primary'
-          onClick={this.loadJobs}>
+          onClick={this.loadJobs}
+        >
                     Run Jobs
                 </Button>
             )
@@ -51,7 +53,8 @@ export class EnvCreateModal extends React.Component {
         <Button
           bsStyle='primary'
           onClick={this.runJobs}
-          disabled={_.some(this.state.jobs, function (job) { return job.loading })}>
+          disabled={_.some(this.state.jobs, function (job) { return job.loading })}
+        >
                     Confirm
                 </Button>
             )
@@ -59,7 +62,8 @@ export class EnvCreateModal extends React.Component {
       actionButton = (
         <Button
           bsStyle='primary'
-          onClick={this.loadApps}>
+          onClick={this.loadApps}
+        >
                     Deploy Apps
                 </Button>
             )
@@ -68,7 +72,8 @@ export class EnvCreateModal extends React.Component {
         <Button
           bsStyle='primary'
           onClick={this.deployApps}
-          disabled={_.some(this.state.apps, function (app) { return app.loading })}>
+          disabled={_.some(this.state.apps, function (app) { return app.loading })}
+        >
                     Confirm
                 </Button>
             )
@@ -83,7 +88,8 @@ export class EnvCreateModal extends React.Component {
             value={this.state.spec}
             onChange={this.onSpecChange}
             style={{'height': '400px'}}
-            disabled={this.state.createdResources} />
+            disabled={this.state.createdResources}
+          />
         </FormGroup>
             )
     }
@@ -115,7 +121,7 @@ export class EnvCreateModal extends React.Component {
               placeholder='my-feature-environment'
               onChange={this.onNameChange}
               disabled={this.state.createdResources}
-                        />
+            />
           </FormGroup>
           <ControlLabel>Default Branch</ControlLabel>
           <Typeahead
@@ -123,7 +129,7 @@ export class EnvCreateModal extends React.Component {
             labelKey='branch'
             onInputChange={this.onBranchChange}
             disabled={this.state.createdResources}
-                    />
+          />
           {specForm}
           {output}
         </Modal.Body>

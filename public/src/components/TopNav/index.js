@@ -30,13 +30,14 @@ export default class TopNav extends React.Component {
           self.props.dispatch(Actions.deleteEnvironment(env.name))
         }
       }
-      return <LinkMenuItem
+      return (<LinkMenuItem
         key={env.name}
         to={spath.join('/')}
         active={self.props.env && env.name === self.props.env.name}
-        onRemove={onRemove}>
+        onRemove={onRemove}
+              >
         {env.name}
-      </LinkMenuItem>
+      </LinkMenuItem>)
     })
 
     // TODO
@@ -47,7 +48,8 @@ export default class TopNav extends React.Component {
 
     return (
       <Navbar className={this.props.env && this.props.env.prod ? 'prod' : ''}
-        fixedTop fluid>
+        fixedTop fluid
+      >
         <div className='navbar-header pull-left'>
           <Link className='navbar-brand' to='/'>Vili</Link>
         </div>
@@ -58,7 +60,8 @@ export default class TopNav extends React.Component {
         </Nav>
         <Nav key='env' className='environment' pullRight>
           <NavDropdown id='env-dropdown'
-            title={(this.props.env && this.props.env.name) || <span className='text-danger'>Select Environment</span>}>
+            title={(this.props.env && this.props.env.name) || <span className='text-danger'>Select Environment</span>}
+          >
             {envElements}
             <MenuItem divider />
             <MenuItem onSelect={this.showCreateEnvModal}>Create Environment</MenuItem>

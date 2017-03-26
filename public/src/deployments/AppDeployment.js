@@ -86,7 +86,8 @@ class DeploymentHeader extends React.Component {
             <FormControl
               componentClass='select'
               value={this.state.strategy}
-              onChange={this.onStrategyChange}>
+              onChange={this.onStrategyChange}
+            >
               {strategies}
             </FormControl>
         )
@@ -384,12 +385,14 @@ export class AppDeployment extends React.Component {
           state={this.state.state}
           desiredReplicas={this.state.desiredReplicas}
           rollout={this.state.rollout}
-                />
+        />
         <div className='row'>
           <FromPods env={this.props.params.env} desiredReplicas={this.state.desiredReplicas}
-            deploymentDB={deploymentDB} />
+            deploymentDB={deploymentDB}
+          />
           <ToPods env={this.props.params.env} desiredReplicas={this.state.desiredReplicas}
-            deploymentDB={deploymentDB} />
+            deploymentDB={deploymentDB}
+          />
         </div>
         <Logs deploymentDB={deploymentDB} />
       </div>
