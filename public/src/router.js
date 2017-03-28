@@ -9,17 +9,18 @@ import EnvironmentHome from './containers/EnvironmentHome'
 import DeploymentsList from './containers/deployments/DeploymentsList'
 import DeploymentBase from './containers/deployments/DeploymentBase'
 import Deployment from './containers/deployments/Deployment'
+import DeploymentDashboard from './containers/deployments/DeploymentDashboard'
 import DeploymentSpec from './containers/deployments/DeploymentSpec'
 import DeploymentPods from './containers/deployments/DeploymentPods'
 import DeploymentService from './containers/deployments/DeploymentService'
 import DeploymentRollouts from './containers/deployments/DeploymentRollouts'
-import DeploymentRollout from './containers/deployments/DeploymentRollout'
 // jobs
 import JobsList from './containers/jobs/JobsList'
 import JobBase from './containers/jobs/JobBase'
 import Job from './containers/jobs/Job'
 import JobSpec from './containers/jobs/JobSpec'
 import JobRuns from './containers/jobs/JobRuns'
+import JobRun from './containers/jobs/JobRun'
 // pods
 import PodsList from './containers/pods/PodsList'
 import Pod from './containers/pods/Pod'
@@ -46,7 +47,7 @@ export default function (history) {
           <Route path='deployments/:deployment' component={DeploymentBase}>
             <IndexRoute component={Deployment} />
             <Route path='rollouts' component={DeploymentRollouts} />
-            <Route path='rollouts/:rollout' component={DeploymentRollout} />
+            <Route path='dashboard' component={DeploymentDashboard} />
             <Route path='pods' component={DeploymentPods} />
             <Route path='service' component={DeploymentService} />
             <Route path='spec' component={DeploymentSpec} />
@@ -55,6 +56,7 @@ export default function (history) {
           <Route path='jobs/:job' component={JobBase}>
             <IndexRoute component={Job} />
             <Route path='runs' component={JobRuns} />
+            <Route path='runs/:run' component={JobRun} />
             <Route path='spec' component={JobSpec} />
           </Route>
           <Route path='pods' component={PodsList} />

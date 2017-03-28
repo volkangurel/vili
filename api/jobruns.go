@@ -140,7 +140,7 @@ type JobRun struct {
 	Job *v1beta1.Job `json:"job"`
 }
 
-// Init initializes a pod, checks to make sure it is valid, and runs it
+// Init initializes a job, checks to make sure it is valid, and runs it
 func (r *JobRun) Init(env, jobName, username string, async bool) error {
 	r.ID = util.RandLowercaseString(16)
 	r.Env = env
@@ -195,10 +195,13 @@ func (r *JobRun) createNewJob() (err error) {
 	containers[0].Image = imageName
 
 	job.ObjectMeta.Name = r.JobName + "-" + r.ID
-	job.ObjectMeta.Labels = map[string]string{
+	labels := map[string]string{
 		"job":       r.JobName,
+		"run":       job.ObjectMeta.Name,
 		"startedBy": r.Username,
 	}
+	job.ObjectMeta.Labels = labels
+	job.Spec.Template.ObjectMeta.Labels = labels
 
 	newJob, status, err := kube.Jobs.Create(r.Env, job)
 	if err != nil {
@@ -220,12 +223,14 @@ func (r *JobRun) watchJob() error {
 
 	startTime := time.Now()
 	go func() {
+	eventLoop:
 		for jobEvent := range eventChan {
 			switch jobEvent.Type {
 			case kube.WatchEventDeleted:
 				elapsed := time.Now().Sub(startTime)
 				r.logMessage(fmt.Sprintf("Deleted job after %s", humanizeDuration(elapsed)), log.WarnLevel)
 				close(stopChan)
+				break eventLoop
 			case kube.WatchEventInit, kube.WatchEventAdded, kube.WatchEventModified:
 				for _, condition := range jobEvent.Object.Status.Conditions {
 					switch condition.Type {
@@ -233,11 +238,12 @@ func (r *JobRun) watchJob() error {
 						elapsed := time.Now().Sub(startTime)
 						r.logMessage(fmt.Sprintf("Successfully completed job in %s", humanizeDuration(elapsed)), log.InfoLevel)
 						close(stopChan)
+						break eventLoop
 					case v1beta1.JobFailed:
 						elapsed := time.Now().Sub(startTime)
 						r.logMessage(fmt.Sprintf("Failed job after %s", humanizeDuration(elapsed)), log.ErrorLevel)
 						close(stopChan)
-
+						break eventLoop
 					}
 				}
 			}

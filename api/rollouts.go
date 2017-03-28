@@ -4,40 +4,19 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"time"
 
-	"github.com/CloudCom/firego"
 	"github.com/airware/vili/config"
 	"github.com/airware/vili/docker"
 	"github.com/airware/vili/errors"
-	"github.com/airware/vili/firebase"
 	"github.com/airware/vili/kube"
 	"github.com/airware/vili/kube/extensions/v1beta1"
-	"github.com/airware/vili/kube/v1"
 	"github.com/airware/vili/log"
 	"github.com/airware/vili/server"
 	"github.com/airware/vili/session"
 	"github.com/airware/vili/templates"
-	"github.com/airware/vili/util"
 	echo "gopkg.in/labstack/echo.v1"
-)
-
-const (
-	rolloutStateNew         = "new"
-	rolloutStateRunning     = "running"
-	rolloutStatePausing     = "pausing"
-	rolloutStatePaused      = "paused"
-	rolloutStateRollingback = "rollingback"
-	rolloutStateRolledback  = "rolledback"
-	rolloutStateCompleted   = "completed"
-)
-
-const (
-	// rolloutPatchTimeout    = 10 * time.Second
-	// rolloutPatchPollPeriod = 1 * time.Second
-	// rolloutScaleTimeout    = 3 * time.Minute
-	// rolloutScalePollPeriod = 1 * time.Second
-	rolloutPollPeriod = 200 * time.Millisecond
 )
 
 func rolloutCreateHandler(c *echo.Context) error {
@@ -71,64 +50,29 @@ func rolloutCreateHandler(c *echo.Context) error {
 	return c.JSON(http.StatusOK, rollout)
 }
 
-// func rolloutEditHandler(c *echo.Context) error {
-// 	env := c.Param("env")
-// 	deploymentName := c.Param("deployment")
-// 	rolloutID := c.Param("rollout")
-
-// 	rollout := &Rollout{}
-// 	if err := json.NewDecoder(c.Request().Body).Decode(rollout); err != nil {
-// 		return err
-// 	}
-// 	if err := rolloutDB(env, deploymentName, rolloutID).Child("rollout").Set(rollout); err != nil {
-// 		return err
-// 	}
-// 	return c.JSON(http.StatusOK, rollout)
-// }
-
 // Rollout represents a single deployment of an image for any app
 // TODO: support MaxUnavailable and MaxSurge for rolling updates
 type Rollout struct {
-	ID         string    `json:"id"`
-	Env        string    `json:"env"`
-	Deployment string    `json:"deployment"`
-	Branch     string    `json:"branch"`
-	Tag        string    `json:"tag"`
-	Time       time.Time `json:"time"`
-	Username   string    `json:"username"`
-	State      string    `json:"state"`
+	Env            string    `json:"env"`
+	DeploymentName string    `json:"deploymentName"`
+	Branch         string    `json:"branch"`
+	Tag            string    `json:"tag"`
+	Time           time.Time `json:"time"`
+	Username       string    `json:"username"`
+	State          string    `json:"state"`
 
-	// Clock        *Clock `json:"clock"`
-	// OriginalPods []Pod  `json:"originalPods"`
-	// FromPods     []Pod  `json:"fromPods"`
-	// FromTag      string `json:"fromTag"`
-	// FromUID      string `json:"fromUid"`
-
-	// ToPods []Pod  `json:"toPods"`
-	// ToUID  string `json:"toUid"`
-
-	db *firego.Firebase // TODO remove firebase
+	FromDeployment *v1beta1.Deployment `json:"fromDeployment"`
+	FromRevision   string              `json:"fromRevision"`
+	ToDeployment   *v1beta1.Deployment `json:"toDeployment"`
+	ToRevision     string              `json:"toRevision"`
 }
 
-// Pod is a summary of the state of a kubernetes pod
-type Pod struct {
-	Name    string    `json:"name"`
-	Created time.Time `json:"created"`
-	Phase   string    `json:"phase"`
-	Ready   bool      `json:"ready"`
-	Host    string    `json:"host"`
-}
-
-// Init initializes a deployment, checks to make sure it is valid, and writes the deployment
-// data to firebase
+// Init initializes a deployment, checks to make sure it is valid, and runs it
 func (r *Rollout) Init(env, deploymentName, username string, async bool) error {
-	r.ID = util.RandLowercaseString(16)
 	r.Env = env
-	r.Deployment = deploymentName
+	r.DeploymentName = deploymentName
 	r.Time = time.Now()
 	r.Username = username
-	r.State = rolloutStateNew
-	r.db = rolloutDB(env, deploymentName, r.ID)
 
 	digest, err := docker.GetTag(deploymentName, r.Branch, r.Tag)
 	if err != nil {
@@ -140,62 +84,32 @@ func (r *Rollout) Init(env, deploymentName, username string, async bool) error {
 		}
 	}
 
-	if err = r.db.Set(r); err != nil {
-		return err
-	}
-
-	fromDeployment, _, err := kube.Deployments.Get(env, deploymentName)
+	r.FromDeployment, _, err = kube.Deployments.Get(env, deploymentName)
 	if err != nil {
 		return err
 	}
-
-	// if fromDeployment != nil {
-	// 	// kubePods, _, err := kube.Pods.ListForDeployment(env, fromDeployment)
-	// 	// if err != nil {
-	// 	// 	return err
-	// 	// }
-	// 	// imageTag, err := getImageTagFromDeployment(fromDeployment)
-	// 	// if err != nil {
-	// 	// 	return err
-	// 	// }
-	// 	// pods, _, _ := getPodsFromPodList(kubePods)
-	// 	// r.OriginalPods = pods
-	// 	// r.FromPods = pods
-	// 	// r.FromTag = imageTag
-
-	// 	// replicaSetList, _, _ := kube.ReplicaSets.List(env, &url.Values{
-	// 	// 	"labelSelector": []string{"app=" + deploymentName},
-	// 	// })
-	// 	// revision := deployment.ObjectMeta.Annotations["deployment.kubernetes.io/revision"]
-	// 	// if replicaSetList != nil {
-	// 	// 	for _, replicaSet := range replicaSetList.Items {
-	// 	// 		rev := replicaSet.ObjectMeta.Annotations["deployment.kubernetes.io/revision"]
-	// 	// 		if rev == revision {
-	// 	// 			r.FromUID = string(replicaSet.ObjectMeta.UID)
-	// 	// 			break
-	// 	// 		}
-	// 	// 	}
-	// 	// }
-	// }
-
-	toDeployment, err := r.createNewDeployment(fromDeployment)
-	if err != nil {
-		return err
-	}
-
-	if !async {
-		err = r.watchRollout(toDeployment)
-		if err != nil {
-			return err
+	if r.FromDeployment != nil {
+		if revision, ok := r.FromDeployment.ObjectMeta.Annotations["deployment.kubernetes.io/revision"]; ok {
+			r.FromRevision = revision
 		}
 	}
 
-	return nil
+	err = r.createNewDeployment()
+	if err != nil {
+		return err
+	}
+
+	if async {
+		go r.watchRollout()
+		return nil
+	}
+
+	return r.watchRollout()
 }
 
-func (r *Rollout) createNewDeployment(fromDeployment *v1beta1.Deployment) (newDeployment *v1beta1.Deployment, err error) {
+func (r *Rollout) createNewDeployment() (err error) {
 	// get the spec
-	deploymentTemplate, err := templates.Deployment(r.Env, r.Branch, r.Deployment)
+	deploymentTemplate, err := templates.Deployment(r.Env, r.Branch, r.DeploymentName)
 	if err != nil {
 		return
 	}
@@ -206,73 +120,111 @@ func (r *Rollout) createNewDeployment(fromDeployment *v1beta1.Deployment) (newDe
 		return
 	}
 
-	deployment.Spec.Template.ObjectMeta.Labels["rollout"] = r.ID
+	labels := map[string]string{
+		"app":        r.DeploymentName,
+		"deployedBy": r.Username,
+	}
+	if r.FromRevision != "" {
+		labels["fromRevision"] = r.FromRevision
+	}
+	deployment.ObjectMeta.Labels = labels
+	deployment.Spec.Template.ObjectMeta.Labels = labels
 
-	imageName, err := docker.FullName(r.Deployment, r.Branch, r.Tag)
+	imageName, err := docker.FullName(r.DeploymentName, r.Branch, r.Tag)
 	if err != nil {
 		return
 	}
 	deployment.Spec.Template.Spec.Containers[0].Image = imageName
 
-	if fromDeployment != nil {
-		*deployment.Spec.Replicas = *fromDeployment.Spec.Replicas
+	if r.FromDeployment != nil {
+		*deployment.Spec.Replicas = *r.FromDeployment.Spec.Replicas
 	}
 
 	deployment.Spec.Strategy.Type = v1beta1.RollingUpdateDeploymentStrategyType
 
 	// create/update deployment
-	newDeployment, _, err = kube.Deployments.Replace(r.Env, r.Deployment, deployment)
+	r.ToDeployment, _, err = kube.Deployments.Replace(r.Env, r.DeploymentName, deployment)
 	if err != nil {
 		return
 	}
-	if newDeployment == nil {
-		newDeployment, _, err = kube.Deployments.Create(r.Env, deployment)
+	if r.ToDeployment == nil {
+		r.ToDeployment, _, err = kube.Deployments.Create(r.Env, deployment)
 		if err != nil {
 			return
 		}
 	}
+
+	// wait for ToDeployment to get revision
+	err = r.waitRolloutInit()
 
 	r.logMessage(fmt.Sprintf("Rollout for tag %s and branch %s created by %s", r.Tag, r.Branch, r.Username), log.InfoLevel)
 	return
 }
 
-func (r *Rollout) watchRollout(deployment *v1beta1.Deployment) (err error) {
-	// It can take some time for kubernetes to populate the revision annotation
-	// var revision string
-	// var ok bool
-	for {
-		// if revision, ok = newDeployment.ObjectMeta.Annotations["deployment.kubernetes.io/revision"]; ok {
-		// 	break
-		// }
-		if deployment.Generation <= deployment.Status.ObservedGeneration {
-			if deployment.Status.UpdatedReplicas == *deployment.Spec.Replicas {
-				// TODO log rollout completed message?
-				break
-			}
-			// TODO log rollout waiting to be completed message?
-		}
-		// TODO log rollout waiting to be updated message?
-		time.Sleep(rolloutPollPeriod)
-		deployment, _, err = kube.Deployments.Get(r.Env, r.Deployment)
-		if err != nil {
-			return
-		}
-	}
-	// replicaSetList, _, err := kube.ReplicaSets.ListForDeployment(r.Env, newDeployment)
-	// if err != nil || replicaSetList == nil {
-	// 	return err
-	// }
-	// for _, replicaSet := range replicaSetList.Items {
-	// 	if string(replicaSet.ObjectMeta.UID) == rollout.FromUID {
-	// 		fromReplicaSet = replicaSet
-	// 	}
-	// 	if string(replicaSet.ObjectMeta.UID) == rollout.ToUID {
-	// 		toReplicaSet = replicaSet
-	// 	}
-	// }
+func (r *Rollout) waitRolloutInit() (err error) {
+	stopChan := make(chan struct{})
+	eventChan := make(chan *kube.DeploymentEvent)
+	defer close(eventChan)
 
-	// TODO watch pods
-	return nil
+	go func() {
+	eventLoop:
+		for deploymentEvent := range eventChan {
+			r.ToDeployment = deploymentEvent.Object
+			switch deploymentEvent.Type {
+			case kube.WatchEventDeleted:
+				close(stopChan)
+				break eventLoop
+			case kube.WatchEventInit, kube.WatchEventAdded, kube.WatchEventModified:
+				if revision, ok := r.ToDeployment.ObjectMeta.Annotations["deployment.kubernetes.io/revision"]; ok {
+					r.ToRevision = revision
+					close(stopChan)
+					break eventLoop
+				}
+			}
+		}
+	}()
+	// TODO set up timeout
+
+	_, err = kube.Deployments.Watch(r.Env, &url.Values{
+		"fieldSelector": {"metadata.name=" + r.DeploymentName},
+	}, eventChan, stopChan)
+	return
+}
+
+func (r *Rollout) watchRollout() (err error) {
+	stopChan := make(chan struct{})
+	eventChan := make(chan *kube.DeploymentEvent)
+	defer close(eventChan)
+
+	startTime := time.Now()
+	go func() {
+	eventLoop:
+		for deploymentEvent := range eventChan {
+			elapsed := time.Now().Sub(startTime)
+			deployment := deploymentEvent.Object
+			switch deploymentEvent.Type {
+			case kube.WatchEventDeleted:
+				r.logMessage(fmt.Sprintf("Deleted deployment after %s", humanizeDuration(elapsed)), log.WarnLevel)
+				close(stopChan)
+				break eventLoop
+			case kube.WatchEventInit, kube.WatchEventAdded, kube.WatchEventModified:
+				if deployment.Generation <= deployment.Status.ObservedGeneration {
+					replicas := *deployment.Spec.Replicas
+					if deployment.Status.UpdatedReplicas >= replicas && deployment.Status.AvailableReplicas >= replicas {
+						r.logMessage(fmt.Sprintf("Successfully completed rollout in %s", humanizeDuration(elapsed)), log.InfoLevel)
+						close(stopChan)
+						break eventLoop
+					}
+				}
+			}
+		}
+	}()
+	// TODO set up timeout
+
+	_, err = kube.Deployments.Watch(r.Env, &url.Values{
+		"fieldSelector": {"metadata.name=" + r.DeploymentName},
+	}, eventChan, stopChan)
+	return
 }
 
 func (r *Rollout) logMessage(message string, level log.Level) {
@@ -280,50 +232,18 @@ func (r *Rollout) logMessage(message string, level log.Level) {
 		"%s/%s/deployments/%s/rollouts/%s", // TODO fix url (ID should be the rollout version)
 		config.GetString(config.URI),
 		r.Env,
-		r.Deployment,
-		r.ID,
+		r.DeploymentName,
+		r.ToRevision,
 	)
 	slackMessage := fmt.Sprintf(
 		"*%s* - *%s* - <%s|%s> - %s",
 		r.Env,
-		r.Deployment,
+		r.DeploymentName,
 		urlStr,
-		r.ID,
+		r.ToRevision,
 		message,
 	)
 	logMessage(message, slackMessage, level)
-}
-
-func rolloutDB(env, deployment, rolloutID string) *firego.Firebase {
-	return firebase.Database().Child(env).Child("deployments").Child(deployment).Child("rollouts").Child(rolloutID)
-}
-
-func getPodsFromPodList(kubePodList *v1.PodList) (pods []Pod, readyCount, runningCount int) {
-	for _, kubePod := range kubePodList.Items {
-		pod := Pod{
-			Name:    kubePod.ObjectMeta.Name,
-			Created: kubePod.ObjectMeta.CreationTimestamp.Time,
-			Phase:   string(kubePod.Status.Phase),
-		}
-		if kubePod.Status.Phase == v1.PodRunning {
-			runningCount++
-			pod.Ready = true
-			for _, containerStatus := range kubePod.Status.ContainerStatuses {
-				if !containerStatus.Ready {
-					pod.Ready = false
-					break
-				}
-			}
-			if pod.Ready {
-				readyCount++
-			}
-		}
-		if kubePod.Status.HostIP != "" {
-			pod.Host = kubePod.Status.HostIP
-		}
-		pods = append(pods, pod)
-	}
-	return
 }
 
 // RolloutInitError is raised if there is a problem initializing a rollout

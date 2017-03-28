@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { PropTypes } from 'react'
 import { connect } from 'react-redux'
 import { Link } from 'react-router'
 import _ from 'underscore'
@@ -19,13 +19,11 @@ function mapStateToProps (state) {
 
 @connect(mapStateToProps)
 export default class JobRuns extends React.Component {
-
-  subData = () => {
-    this.props.dispatch(getJobs(this.props.params.env, this.props.params.job))
-  }
-
-  unsubData = () => {
-    this.props.dispatch(getJobs(this.props.params.env, this.props.params.job))
+  static propTypes = {
+    dispatch: PropTypes.func,
+    jobs: PropTypes.object,
+    params: PropTypes.object, // react router provides this
+    location: PropTypes.object // react router provides this
   }
 
   componentDidMount () {
@@ -44,12 +42,20 @@ export default class JobRuns extends React.Component {
     this.unsubData()
   }
 
+  subData = () => {
+    this.props.dispatch(getJobs(this.props.params.env, this.props.params.job))
+  }
+
+  unsubData = () => {
+    //this.props.dispatch(getJobs(this.props.params.env, this.props.params.job))
+  }
+
   render () {
     const self = this
-    const jobs = this.props.jobs
+    const { jobs } = this.props
     const job = (jobs.envs &&
-      jobs.envs[this.props.params.env] &&
-      jobs.envs[this.props.params.env][this.props.params.job])
+                 jobs.envs[this.props.params.env] &&
+                 jobs.envs[this.props.params.env][this.props.params.job])
     if (jobs.isFetching || !job) {
       return (<Loading />)
     }

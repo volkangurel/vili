@@ -1,11 +1,11 @@
-import React from 'react'
+import React, { PropTypes } from 'react'
 import { connect } from 'react-redux'
 import { Button, Label } from 'react-bootstrap'
 import _ from 'underscore'
 
 import displayTime from '../../lib/displayTime'
-import Table from '../../components/Table'
 import Loading from '../../components/Loading'
+import Table from '../../components/Table'
 import { activateJobTab } from '../../actions/app'
 import { getJobs, runJob } from '../../actions/jobs'
 
@@ -17,6 +17,12 @@ function mapStateToProps (state) {
 
 @connect(mapStateToProps)
 export default class Job extends React.Component {
+  static propTypes = {
+    dispatch: PropTypes.func,
+    params: PropTypes.object, // react router provides this
+    location: PropTypes.object, // react router provides this
+    jobs: PropTypes.object
+  }
 
   componentDidMount () {
     this.props.dispatch(activateJobTab('home'))
@@ -33,8 +39,8 @@ export default class Job extends React.Component {
     const self = this
     const jobs = this.props.jobs
     const job = (jobs.envs &&
-      jobs.envs[this.props.params.env] &&
-      jobs.envs[this.props.params.env][this.props.params.job])
+                 jobs.envs[this.props.params.env] &&
+                 jobs.envs[this.props.params.env][this.props.params.job])
     if (jobs.isFetching || !job) {
       return (<Loading />)
     }
@@ -65,7 +71,6 @@ export default class Job extends React.Component {
             jobRuns={tagJobRuns[data.tag] || []}
             env={self.props.params.env}
             job={self.props.params.job}
-            dispatch={self.props.dispatch}
           />),
         time: (new Date(data.lastModified)).getTime()
       }
@@ -80,7 +85,21 @@ export default class Job extends React.Component {
 
 }
 
+@connect()
 class Row extends React.Component {
+  static propTypes = {
+    dispatch: PropTypes.func,
+    env: PropTypes.string,
+    job: PropTypes.string,
+    jobRuns: PropTypes.array,
+    data: PropTypes.object
+  }
+
+  runTag = (event) => {
+    event.target.setAttribute('disabled', 'disabled')
+    const { dispatch, env, job, data } = this.props
+    dispatch(runJob(env, job, data.tag, data.branch))
+  }
 
   render () {
     const { data, jobRuns } = this.props
@@ -105,21 +124,17 @@ class Row extends React.Component {
         </div>
       )
     })
-    return (<tr>
-      <td data-column='tag'>{data.tag}</td>
-      <td data-column='branch'>{data.branch}</td>
-      <td data-column='revision'>{data.revision || 'unknown'}</td>
-      <td data-column='buildtime'>{displayTime(date)}</td>
-      <td data-column='runtimes'>{runTimes}</td>
-      <td data-column='actions'>
-        <Button onClick={this.runTag} bsStyle='primary' bsSize='xs'>Run</Button>
-      </td>
-    </tr>)
-  }
-
-  runTag = (event) => {
-    event.target.setAttribute('disabled', 'disabled')
-    const { dispatch, env, job, data } = this.props
-    dispatch(runJob(env, job, data.tag, data.branch))
+    return (
+      <tr>
+        <td data-column='tag'>{data.tag}</td>
+        <td data-column='branch'>{data.branch}</td>
+        <td data-column='revision'>{data.revision || 'unknown'}</td>
+        <td data-column='buildtime'>{displayTime(date)}</td>
+        <td data-column='runtimes'>{runTimes}</td>
+        <td data-column='actions'>
+          <Button onClick={this.runTag} bsStyle='primary' bsSize='xs'>Run</Button>
+        </td>
+      </tr>
+    )
   }
 }

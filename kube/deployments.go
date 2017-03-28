@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"net/url"
 
+	"github.com/airware/vili/errors"
 	"github.com/airware/vili/kube/extensions/v1beta1"
 	"github.com/airware/vili/kube/unversioned"
+	"github.com/airware/vili/log"
 )
 
 // Deployments is the default deployments service instance
@@ -175,4 +177,55 @@ func (s *DeploymentsService) Delete(env, name string) (*unversioned.Status, erro
 		return status, err
 	}
 	return nil, nil
+}
+
+// DeploymentEvent describes an event on a deployment
+type DeploymentEvent struct {
+	Type   WatchEventType      `json:"type"`
+	Object *v1beta1.Deployment `json:"object"`
+}
+
+// Watch watches deployments in `env`
+func (s *DeploymentsService) Watch(env string, query *url.Values, eventChan chan<- *DeploymentEvent, stopChan chan struct{}) (bool, error) {
+	client, err := getClient(env)
+	if err != nil {
+		return false, invalidEnvError(env)
+	}
+	if query == nil {
+		query = &url.Values{}
+	}
+	if query.Get("resourceVersion") == "" {
+		// get the current deployment first
+		deploymentList := new(v1beta1.DeploymentList)
+		status, err := client.unmarshalRequest("GET", "deployments", query, nil, deploymentList)
+		if err != nil {
+			return false, err
+		}
+		if status != nil {
+			return false, errors.BadRequest(status.Message)
+		}
+		for _, deployment := range deploymentList.Items {
+			d := deployment
+			eventChan <- &DeploymentEvent{
+				Type:   WatchEventInit,
+				Object: &d,
+			}
+		}
+		query.Set("resourceVersion", deploymentList.ListMeta.ResourceVersion)
+	}
+	log.Debugf("subscribing to deployment events - %s", env)
+	// then watch for events starting from the resource version
+	return client.jsonStreamWatchRequest("deployments", query, stopChan, func(eventType WatchEventType, body json.RawMessage) error {
+		event := &DeploymentEvent{
+			Type:   eventType,
+			Object: new(v1beta1.Deployment),
+		}
+		err = json.Unmarshal(body, event.Object)
+		if err != nil {
+			log.WithError(err).WithField("body", string(body)).Error("error parsing deployment json")
+			return err
+		}
+		eventChan <- event
+		return nil
+	})
 }

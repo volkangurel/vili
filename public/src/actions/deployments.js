@@ -1,37 +1,26 @@
+import { browserHistory } from 'react-router'
+
 import * as Constants from '../constants'
 
 export function getDeployments (env, name, qs) {
   return async function (dispatch, getState, api) {
     dispatch({ type: Constants.GET_DEPLOYMENTS })
     const { results, error } = await api.deployments.get(env, name, qs)
-
     if (error) {
-      // TODO
-      /* window.app.snackbar.makeDismissableToast({
-         message: error.message,
-         level: window.app.snackbar.Level.WARNING
-         }) */
-      return false
+      return { error }
     }
-
     dispatch(setDeployments(env, name, results))
-    return true
+    return { results }
   }
 }
 
 export function scaleDeployment (env, name, replicas) {
   return async function (dispatch, getState, api) {
-    const { error } = await api.deployments.scale(env, name, replicas)
-
+    const { results, error } = await api.deployments.scale(env, name, replicas)
     if (error) {
-      // TODO
-      /* window.app.snackbar.makeDismissableToast({
-         message: error.message,
-         level: window.app.snackbar.Level.WARNING
-         }) */
-      return false
+      return { error }
     }
-    return true
+    return { results }
   }
 }
 
@@ -48,5 +37,20 @@ export function setDeployments (env, name, results) {
       env: env,
       deployments: deployments
     }
+  }
+}
+
+export function deployTag (env, name, tag, branch) {
+  return async function (dispatch, getState, api) {
+    const { results, error } = await api.rollouts.create(env, name, {
+      tag: tag,
+      branch: branch
+    })
+    if (error) {
+      return { error }
+    }
+    const rolloutId = results.toDeployment.metadata.annotations['deployment.kubernetes.io/revision']
+    browserHistory.push(`/${env}/deployments/${name}/rollouts/${rolloutId}`)
+    return { results }
   }
 }

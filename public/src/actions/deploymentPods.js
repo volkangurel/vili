@@ -15,8 +15,8 @@ export function subDeploymentPods (env, name, qs) {
           deployment: name
         }
       })
-      const ws = api.pods.watch(function (event) {
-        dispatch(changeDeploymentPod(env, name, JSON.parse(event.data)))
+      const ws = api.pods.watch(function (data) {
+        dispatch(changeDeploymentPod(env, name, data))
       }, env, { labelSelector: 'app=' + name })
       subscriptions[env][name] = ws
     }

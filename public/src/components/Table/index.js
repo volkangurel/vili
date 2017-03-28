@@ -1,13 +1,15 @@
 import React, { PropTypes } from 'react'
+import { Table } from 'react-bootstrap'
 import _ from 'underscore'
 
-export default class Table extends React.Component {
+export default class ViliTable extends React.Component {
 
   static propTypes = {
     rows: PropTypes.array,
     columns: PropTypes.array,
     multiselect: PropTypes.bool,
     isSelectAll: PropTypes.bool,
+    fill: PropTypes.bool,
     onRowSelection: PropTypes.func,
     shouldRenderCheckbox: PropTypes.func
   }
@@ -49,10 +51,10 @@ export default class Table extends React.Component {
       return <tr key={'row-' + ix} className={className}>{cells}</tr>
     })
     return (
-      <table className='table table-hover'>
+      <Table hover fill={this.props.fill}>
         <thead key='thead'>{header}</thead>
         <tbody key='tbody'>{rows}</tbody>
-      </table>
+      </Table>
     )
   }
 }

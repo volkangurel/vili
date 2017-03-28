@@ -1,4 +1,4 @@
-import { push } from 'react-router-redux'
+import { browserHistory } from 'react-router'
 
 import * as Constants from '../constants'
 
@@ -6,18 +6,11 @@ export function getJobs (env, name, qs) {
   return async function (dispatch, getState, api) {
     dispatch({ type: Constants.GET_JOBS })
     const { results, error } = await api.jobs.get(env, name, qs)
-
     if (error) {
-      // TODO
-      /* window.app.snackbar.makeDismissableToast({
-         message: error.message,
-         level: window.app.snackbar.Level.WARNING
-         }) */
-      return false
+      return { error }
     }
-
     dispatch(setJobs(env, name, results))
-    return true
+    return { results }
   }
 }
 
@@ -43,17 +36,10 @@ export function runJob (env, name, tag, branch) {
       tag: tag,
       branch: branch
     })
-
     if (error) {
-      // TODO
-      /* window.app.snackbar.makeDismissableToast({
-         message: error.message,
-         level: window.app.snackbar.Level.WARNING
-         }) */
-      return false
+      return { error }
     }
-
-    dispatch(push(`/${env}/jobs/${name}/runs/${results.job.metadata.name}`))
-    return true
+    browserHistory.push(`/${env}/jobs/${name}/runs/${results.job.metadata.name}`)
+    return { results }
   }
 }

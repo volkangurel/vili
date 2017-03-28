@@ -19,6 +19,9 @@ export const RUN_JOB = 'RUN_JOB'
 // job runs
 export const CLEAR_JOB_RUNS = 'CLEAR_JOB_RUNS'
 export const CHANGE_JOB_RUN = 'CHANGE_JOB_RUN'
+// job run pods
+export const CLEAR_JOB_RUN_PODS = 'CLEAR_JOB_RUN_PODS'
+export const CHANGE_JOB_RUN_POD = 'CHANGE_JOB_RUN_POD'
 // pods
 export const CLEAR_PODS = 'CLEAR_PODS'
 export const CHANGE_POD = 'CHANGE_POD'

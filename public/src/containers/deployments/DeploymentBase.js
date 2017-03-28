@@ -1,16 +1,18 @@
 import React, { PropTypes } from 'react'
 import { connect } from 'react-redux'
-import { RouteHandler, Link } from 'react-router' // eslint-disable-line no-unused-vars
+import { Link } from 'react-router'
 import _ from 'underscore'
 
 import { activateNav } from '../../actions/app'
 
 const tabs = {
   'home': 'Home',
+  'dashboard': 'Dashboard',
+  'spec': 'Spec',
+  // deprecated TODO remove
   'rollouts': 'Rollouts',
   'pods': 'Pods',
-  'service': 'Service',
-  'spec': 'Spec'
+  'service': 'Service'
 }
 
 function mapStateToProps (state) {
@@ -22,9 +24,10 @@ function mapStateToProps (state) {
 @connect(mapStateToProps)
 export default class DeploymentBase extends React.Component {
   static propTypes = {
-    app: PropTypes.object,
     params: PropTypes.object, // react router provides this
-    location: PropTypes.object // react router provides this
+    location: PropTypes.object, // react router provides this
+    dispatch: PropTypes.func,
+    app: PropTypes.object
   }
 
   componentDidMount () {

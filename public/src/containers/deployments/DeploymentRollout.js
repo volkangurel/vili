@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { PropTypes } from 'react'
 import { connect } from 'react-redux'
 import { Link } from 'react-router'
 import { Alert, ButtonGroup, Button } from 'react-bootstrap'
@@ -11,52 +11,86 @@ import Table from '../../components/Table'
 import Loading from '../../components/Loading'
 import { activateDeploymentTab } from '../../actions/app'
 import { getDeployments } from '../../actions/deployments'
-import { getDeploymentPods } from '../../actions/deploymentPods'
+import { subDeploymentPods, unsubDeploymentPods } from '../../actions/deploymentPods'
 
 // const rolloutStrategies = [
 //   'RollingUpdate',
 //   'Recreate'
 // ]
 
-function mapStateToProps (state) {
+function mapStateToProps (state, ownProps) {
+  const deployments = state.deployments.toJS()
+  const deployment = deployments.envs &&
+                     deployments.envs[ownProps.params.env] &&
+                     deployments.envs[ownProps.params.env][ownProps.params.deployment]
+
+  const deploymentPods = state.deploymentPods.toJS()
+  const pods = (deploymentPods.envs &&
+                deploymentPods.envs[ownProps.params.env] &&
+                deploymentPods.envs[ownProps.params.env][ownProps.params.deployment]) ||
+               {}
+
   return {
-    deployments: state.deployments.toJS(),
-    deploymentPods: state.deploymentPods.toJS()
+    deployment,
+    pods
   }
 }
 
 @connect(mapStateToProps)
 export default class DeploymentRollout extends React.Component {
-
-  loadData = () => {
-    this.props.dispatch(getDeploymentPods(this.props.params.env, this.props.params.deployment))
+  static propTypes = {
+    dispatch: PropTypes.func,
+    params: PropTypes.object, // react router provides this
+    location: PropTypes.object, // react router provides this
+    deployment: PropTypes.object,
+    pods: PropTypes.object
   }
 
-  get deployment () {
-    return (this.props.deployments.envs &&
-      this.props.deployments.envs[this.props.params.env] &&
-      this.props.deployments.envs[this.props.params.env][this.props.params.deployment])
+  componentDidMount () {
+    this.props.dispatch(activateDeploymentTab('rollouts'))
+    this.subData()
+  }
+
+  componentDidUpdate (prevProps) {
+    if (this.props.params !== prevProps.params) {
+      this.unsubData()
+      this.subData()
+    }
+  }
+
+  componentWillUnmount () {
+    this.unsubData()
+  }
+
+  subData = () => {
+    const { params } = this.props
+    this.props.dispatch(getDeployments(params.env, params.deployment))
+    this.props.dispatch(subDeploymentPods(params.env, params.deployment))
+  }
+
+  unsubData = () => {
+    const { params } = this.props
+    this.props.dispatch(unsubDeploymentPods(params.env, params.deployment))
   }
 
   render () {
-    const self = this
-    const deployment = this.deployment
-    if (!this.deployment) {
+    const { params, deployment, pods } = this.props
+    if (!deployment) {
       return (<Loading />)
     }
+    const desiredReplicas = parseInt(deployment.replicaSet.metadata.annotations['deployment.kubernetes.io/desired-replicas'])
 
-    const fromRollout = _.find(deployment.rolloutHistory, function (rollout) {
-      return rollout.metadata.annotations['deployment.kubernetes.io/revision'] === self.props.location.query.from
-    })
     const toRollout = _.find(deployment.rolloutHistory, function (rollout) {
-      return rollout.metadata.annotations['deployment.kubernetes.io/revision'] === self.props.params.rollout
+      return rollout.metadata.annotations['deployment.kubernetes.io/revision'] === params.rollout
     })
+    if (!toRollout) {
+      return (<Loading />)
+    }
+    const { fromRevision } = toRollout.metadata.labels
 
-    const deploymentPods = this.props.deploymentPods
-    const pods = (deploymentPods.envs &&
-      deploymentPods.envs[this.props.params.env] &&
-      deploymentPods.envs[this.props.params.env][this.props.params.deployment]) ||
-      []
+    const fromRollout = fromRevision && _.find(deployment.rolloutHistory, function (rollout) {
+      return rollout.metadata.annotations['deployment.kubernetes.io/revision'] === fromRevision
+    })
 
     var fromPods
     if (fromRollout) {
@@ -69,29 +103,26 @@ export default class DeploymentRollout extends React.Component {
       return pod.metadata.generateName === (toRollout.metadata.name + '-')
     })
 
-    console.log(fromPods)
-    console.log(toPods)
-
     return (
       <div className='rollout'>
         <DeploymentHeader
-          env={this.props.params.env}
-          deployment={this.props.params.deployment}
-          rollout={this.props.params.rollout}
+          env={params.env}
+          deployment={params.deployment}
+          rollout={params.rollout}
         />
         <div className='row'>
           <RolloutPods
             title='From'
-            env={this.props.params.env}
+            desiredReplicas={desiredReplicas}
+            env={params.env}
             deployment={deployment}
-            rollout={this.props.params.rollout}
             pods={fromPods}
           />
           <RolloutPods
             title='To'
-            env={this.props.params.env}
+            desiredReplicas={desiredReplicas}
+            env={params.env}
             deployment={deployment}
-            rollout={this.props.params.rollout}
             pods={toPods}
           />
         </div>
@@ -99,30 +130,22 @@ export default class DeploymentRollout extends React.Component {
       </div>
     )
   }
-
-  componentDidMount () {
-    this.props.dispatch(activateDeploymentTab('rollouts'))
-    this.props.dispatch(getDeployments(this.props.params.env, this.props.params.deployment))
-    this.loadData()
-    this.dataInterval = setInterval(this.loadData, 3000)
-  }
-
-  componentDidUpdate (prevProps) {
-    if (this.props.params !== prevProps.params) {
-      this.props.dispatch(getDeployments(this.props.params.env, this.props.params.deployment))
-      this.loadData()
-    }
-  }
-
 }
 
 class DeploymentHeader extends React.Component {
-  constructor (props) {
-    super(props)
+  resume = () => {
+    this.setState({disabled: true})
+    viliApi.deployments.resume(this.props.env, this.props.app, this.props.deployment)
+  }
 
-    this.pause = this.pause.bind(this)
-    this.resume = this.resume.bind(this)
-    this.rollback = this.rollback.bind(this)
+  pause = () => {
+    this.setState({disabled: true})
+    viliApi.deployments.pause(this.props.env, this.props.app, this.props.deployment)
+  }
+
+  rollback = () => {
+    this.setState({disabled: true})
+    viliApi.deployments.rollback(this.props.env, this.props.app, this.props.deployment)
   }
 
   render () {
@@ -173,68 +196,47 @@ class DeploymentHeader extends React.Component {
               {buttons}
             </ButtonGroup>
           </div>
-          <div className='col-md-2'>
-            <Clock />
-          </div>
         </div>
-      </div>
-    )
-  }
-
-  resume () {
-    this.setState({disabled: true})
-    viliApi.deployments.resume(this.props.env, this.props.app, this.props.deployment)
-  }
-
-  pause () {
-    this.setState({disabled: true})
-    viliApi.deployments.pause(this.props.env, this.props.app, this.props.deployment)
-  }
-
-  rollback () {
-    this.setState({disabled: true})
-    viliApi.deployments.rollback(this.props.env, this.props.app, this.props.deployment)
-  }
-
-}
-
-class Clock extends React.Component {
-  render () {
-    return (
-      <div className='deploy-clock'>
-        {moment.duration(this.props.val || 0).format('m[m]:ss[s]')}
       </div>
     )
   }
 }
 
 class RolloutPods extends React.Component {
+  static propTypes = {
+    title: PropTypes.string,
+    env: PropTypes.string,
+    desiredReplicas: PropTypes.number,
+    pods: PropTypes.array
+  }
 
   render () {
-    var self = this
-    var columns = [
+    const { title, env, desiredReplicas } = this.props
+    const columns = [
       {title: 'Name', key: 'name'},
       {title: 'Created', key: 'created'},
-      {title: 'Phase', key: 'phase'},
-      {title: 'Ready', key: 'ready'},
-      {title: 'Host', key: 'host'}
+      {title: 'Phase', key: 'phase'}
     ]
 
+    if (title === 'To') {
+      columns.push({title: 'Ready', key: 'ready'})
+      columns.push({title: 'Host', key: 'host'})
+    }
+
     /*
-    const podsMap = {}
-    const originalKeys = _.map(this.props.pods, function(pod) {
-      podsMap[pod.name] = pod
-      return pod.name
-    })
-    const fromKeys = _.map(this.state.fromPods, function(pod) {
-      podsMap[pod.name] = pod
-      fromKeys.push(pod.name)
-    })
+       const podsMap = {}
+       const originalKeys = _.map(this.props.pods, function(pod) {
+       podsMap[pod.name] = pod
+       return pod.name
+       })
+       const fromKeys = _.map(this.state.fromPods, function(pod) {
+       podsMap[pod.name] = pod
+       fromKeys.push(pod.name)
+       })
 
-    var allKeys = _.union(originalKeys, fromKeys)
- */
+       var allKeys = _.union(originalKeys, fromKeys)
+     */
 
-    const desiredReplicas = parseInt(this.props.deployment.replicaSet.metadata.annotations['deployment.kubernetes.io/desired-replicas'])
     var readyCount = 0
 
     const rows = _.map(this.props.pods, function (pod) {
@@ -246,15 +248,15 @@ class RolloutPods extends React.Component {
         readyCount += 1
       }
       return {
-        name: (<Link to={`/${self.props.env}/pods/${pod.metadata.name}`}>{pod.metadata.name}</Link>),
+        name: (<Link to={`/${env}/pods/${pod.metadata.name}`}>{pod.metadata.name}</Link>),
         created: displayTime(new Date(pod.metadata.creationTimestamp)),
         phase: pod.status.phase,
         ready: ready ? String.fromCharCode('10003') : '',
-        host: (<Link to={`/${self.props.env}/nodes/${pod.spec.nodeName}`}>{pod.spec.nodeName}</Link>)
+        host: (<Link to={`/${env}/nodes/${pod.spec.nodeName}`}>{pod.spec.nodeName}</Link>)
       }
     })
 
-    if (this.props.title === 'From') {
+    if (title === 'From') {
       for (var i = rows.length; i < desiredReplicas; i++) {
         rows.push({
           _className: 'text-muted',
@@ -265,7 +267,7 @@ class RolloutPods extends React.Component {
     }
 
     return (
-      <div className='col-md-6'>
+      <div className={title === 'From' ? 'col-md-4' : 'col-md-8'}>
         <h3>{`${this.props.title} Pods (${readyCount}/${desiredReplicas})`}</h3>
         <Table columns={columns} rows={rows} />
       </div>

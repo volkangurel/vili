@@ -11,6 +11,11 @@ import { activateNav } from '../../actions/app'
 // import { getJobs } from '../../actions/jobs'
 
 class Row extends React.Component {
+  static propTypes = {
+    replicaSet: PropTypes.object,
+    env: PropTypes.object,
+    name: PropTypes.string
+  }
 
   get tag () {
     if (this.props.replicaSet) {
@@ -31,14 +36,16 @@ class Row extends React.Component {
   }
 
   render () {
-    return (<tr>
-      <td data-column='name'>
-        <Link to={`/${this.props.env.name}/jobs/${this.props.name}`}>{this.props.name}</Link>
-      </td>
-      <td data-column='tag'>{this.tag}</td>
-      <td data-column='replicas'>{this.replicas}</td>
-      <td data-column='deployed_at'>{this.deployedAt}</td>
-    </tr>)
+    return (
+      <tr>
+        <td data-column='name'>
+          <Link to={`/${this.props.env.name}/jobs/${this.props.name}`}>{this.props.name}</Link>
+        </td>
+        <td data-column='tag'>{this.tag}</td>
+        <td data-column='replicas'>{this.replicas}</td>
+        <td data-column='deployed_at'>{this.deployedAt}</td>
+      </tr>
+    )
   }
 
 }
@@ -53,16 +60,11 @@ function mapStateToProps (state) {
 @connect(mapStateToProps)
 export default class JobsList extends React.Component {
   static propTypes = {
+    dispatch: PropTypes.func,
     jobs: PropTypes.object,
     envs: PropTypes.array,
     params: PropTypes.object, // react router provides this
     location: PropTypes.object // react router provides this
-  }
-
-  constructor (props) {
-    super(props)
-
-    this.release = this.release.bind(this)
   }
 
   componentDidMount () {
@@ -77,7 +79,6 @@ export default class JobsList extends React.Component {
   }
 
   render () {
-    const self = this
     const env = _.findWhere(this.props.envs, {name: this.props.params.env})
 
     const header = [(

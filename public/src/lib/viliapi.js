@@ -1,5 +1,6 @@
-import HttpClient from './HttpClient'
 import _ from 'underscore'
+
+import HttpClient from './HttpClient'
 
 const httpClient = new HttpClient('/api/v1/')
 
@@ -13,13 +14,12 @@ export default {
         name = null
       }
       if (name) {
-        return await httpClient.get({ url: 'envs/' + env + '/deployments/' + name, query: qs })
+        return await httpClient.get({ url: `envs/${env}/deployments/${name}`, query: qs })
       }
-      return await httpClient.get({ url: 'envs/' + env + '/deployments', query: qs })
+      return await httpClient.get({ url: `envs/${env}/deployments`, query: qs })
     },
-
     async scale (env, name, replicas) {
-      return await httpClient.put({ url: 'envs/' + env + '/deployments/' + name + '/scale', json: { replicas: replicas } })
+      return await httpClient.put({ url: `envs/${env}/deployments/${name}/scale`, json: { replicas: replicas } })
     }
   },
 
@@ -30,22 +30,9 @@ export default {
         name = null
       }
       if (name) {
-        return await httpClient.get({ url: 'envs/' + env + '/jobs/' + name, query: qs })
+        return await httpClient.get({ url: `envs/${env}/jobs/${name}`, query: qs })
       }
-      return await httpClient.get({ url: 'envs/' + env + '/jobs', query: qs })
-    },
-    watch (handler, env, name, qs) {
-      if (_.isObject(name)) {
-        qs = name
-        name = null
-      } else if (!qs) {
-        qs = {}
-      }
-      qs.watch = 'true'
-      if (name) {
-        return httpClient.ws({ url: 'envs/' + env + '/jobs/' + name, qs: qs, messageHandler: handler })
-      }
-      return httpClient.ws({ url: 'envs/' + env + '/jobs', qs: qs, messageHandler: handler })
+      return await httpClient.get({ url: `envs/${env}/jobs`, query: qs })
     }
   },
 
@@ -56,13 +43,13 @@ export default {
         name = null
       }
       if (name) {
-        return await httpClient.get({ url: 'envs/' + env + '/nodes/' + name, query: qs })
+        return await httpClient.get({ url: `envs/${env}/nodes/${name}`, query: qs })
       }
-      return await httpClient.get({ url: 'envs/' + env + '/nodes', query: qs })
+      return await httpClient.get({ url: `envs/${env}/nodes`, query: qs })
     },
 
     async setSchedulable (env, name, onOff) {
-      return await httpClient.put({ url: 'envs/' + env + '/nodes/' + name + '/' + onOff.toLowerCase() })
+      return await httpClient.put({ url: `envs/${env}/nodes/${name}/${onOff.toLowerCase()}` })
     }
   },
 
@@ -71,11 +58,74 @@ export default {
       if (_.isObject(name)) {
         qs = name
         name = null
+      } else if (!qs) {
+        qs = {}
       }
       if (name) {
-        return await httpClient.get({ url: 'envs/' + env + '/pods/' + name, query: qs })
+        qs.fieldSelector = `metadata.name=${name}`
       }
-      return await httpClient.get({ url: 'envs/' + env + '/pods', query: qs })
+      return await httpClient.get({ url: `envs/${env}/pods`, query: qs })
+    },
+    watch (handler, env, name, qs) {
+      if (_.isObject(name)) {
+        qs = name
+        name = null
+      } else if (!qs) {
+        qs = {}
+      }
+      if (name) {
+        qs.fieldSelector = `metadata.name=${name}`
+      }
+      qs.watch = 'true'
+      return httpClient.ws({ url: `envs/${env}/pods`, qs: qs, messageHandler: handler })
+    },
+    watchLog (handler, env, name, qs) {
+      if (!qs) {
+        qs = {}
+      }
+      qs.follow = 'true'
+      return httpClient.ws({ url: `envs/${env}/pods/${name}/log`, qs: qs, messageHandler: handler })
+    },
+    async del (env, name) {
+      return await httpClient.delete({ url: `envs/${env}/pods/${name}` })
+    }
+  },
+
+  services: {
+    async create (env, app) {
+      return await httpClient.post({ url: `envs/${env}/apps/${app}/service` })
+    }
+  },
+
+  rollouts: {
+    async create (env, deployment, spec) {
+      const qs = {async: 'true'}
+      return await httpClient.post({ url: `envs/${env}/deployments/${deployment}/rollouts`, query: qs, json: spec })
+    },
+    //    async setRollout (env, deployment, id, rollout) { TODO remove
+    //      return await httpClient.put({ url: `envs/${env}/deployments/${deployment}/rollouts/${id}/rollout`, json: rollout})
+    //    },
+    async resume (env, deployment, id) {
+      return await httpClient.post({ url: `envs/${env}/deployments/${deployment}/rollouts/${id}/resume` })
+    },
+    async pause (env, deployment, id) {
+      return await httpClient.post({ url: `envs/${env}/deployments/${deployment}/rollouts/${id}/pause` })
+    },
+    async rollback (env, deployment, id) {
+      return await httpClient.post({ url: `envs/${env}/deployments/${deployment}/rollouts/${id}/rollback` })
+    }
+  },
+
+  runs: {
+    async create (env, job, spec) {
+      const qs = {async: 'true'}
+      return await httpClient.post({ url: `envs/${env}/jobs/${job}/runs`, query: qs, json: spec })
+    },
+    async start (env, job, id) {
+      return await httpClient.post({ url: `envs/${env}/jobs/${job}/runs/${id}/start` })
+    },
+    async terminate (env, job, id) {
+      return await httpClient.post({ url: `envs/${env}/jobs/${job}/runs/${id}/terminate` })
     },
     watch (handler, env, name, qs) {
       if (_.isObject(name)) {
@@ -85,86 +135,35 @@ export default {
         qs = {}
       }
       qs.watch = 'true'
-      if (name) {
-        return httpClient.ws({ url: 'envs/' + env + '/pods/' + name, qs: qs, messageHandler: handler })
-      }
-      return httpClient.ws({ url: 'envs/' + env + '/pods', qs: qs, messageHandler: handler })
+      return httpClient.ws({ url: `envs/${env}/jobs/${name}/runs`, qs: qs, messageHandler: handler })
     },
-    watchLog (handler, env, name, qs) {
-      if (!qs) {
-        qs = {}
-      }
-      qs.follow = 'true'
-      return httpClient.ws({ url: 'envs/' + env + '/pods/' + name + '/log', qs: qs, messageHandler: handler })
-    },
-    async del (env, name) {
-      return await httpClient.delete({ url: 'envs/' + env + '/pods/' + name })
-    }
-  },
-
-  services: {
-    async create (env, app) {
-      return await httpClient.post({ url: 'envs/' + env + '/apps/' + app + '/service' })
-    }
-  },
-
-  rollouts: {
-    async create (env, deployment, spec) {
-      const qs = {}
-      if (spec.trigger) {
-        qs.trigger = 'true'
-      }
-      return await httpClient.post({ url: 'envs/' + env + '/deployments/' + deployment + '/rollouts', qs: qs, json: spec })
-    },
-//    async setRollout (env, deployment, id, rollout) { TODO remove
-//      return await httpClient.put({ url: 'envs/' + env + '/deployments/' + deployment + '/rollouts/' + id + '/rollout', json: rollout})
-//    },
-    async resume (env, deployment, id) {
-      return await httpClient.post({ url: 'envs/' + env + '/deployments/' + deployment + '/rollouts/' + id + '/resume' })
-    },
-    async pause (env, deployment, id) {
-      return await httpClient.post({ url: 'envs/' + env + '/deployments/' + deployment + '/rollouts/' + id + '/pause' })
-    },
-    async rollback (env, deployment, id) {
-      return await httpClient.post({ url: 'envs/' + env + '/deployments/' + deployment + '/rollouts/' + id + '/rollback' })
-    }
-  },
-
-  runs: {
-    async create (env, job, spec) {
-      const qs = {async: 'true'}
-      return await httpClient.post({ url: 'envs/' + env + '/jobs/' + job + '/runs', qs: qs, json: spec })
-    },
-    async start (env, job, id) {
-      return await httpClient.post({ url: 'envs/' + env + '/jobs/' + job + '/runs/' + id + '/start' })
-    },
-    async terminate (env, job, id) {
-      return await httpClient.post({ url: 'envs/' + env + '/jobs/' + job + '/runs/' + id + '/terminate' })
+    async del (env, job, id) {
+      return await httpClient.delete({ url: `envs/${env}/jobs/${job}/runs/${id}` })
     }
   },
 
   releases: {
     async create (name, tag, spec) {
-      return await httpClient.post({ url: 'releases/' + name + '/' + tag, json: spec })
+      return await httpClient.post({ url: `releases/${name}/${tag}`, json: spec })
     },
     async delete (name, tag) {
-      return await httpClient.delete({ url: 'releases/' + name + '/' + tag })
+      return await httpClient.delete({ url: `releases/${name}/${tag}` })
     }
   },
 
   environments: {
     async create (spec) {
-      return await httpClient.post({ url: 'environments', json: spec })
+      return await httpClient.post({ url: `environments`, json: spec })
     },
     async delete (name) {
-      return await httpClient.delete({ url: 'environments/' + name })
+      return await httpClient.delete({ url: `environments/${name}` })
     },
     async branches () {
-      return await httpClient.get({ url: 'envBranches' })
+      return await httpClient.get({ url: `envBranches` })
     },
     async spec (name, branch) {
       const qs = { name: name, branch: branch }
-      return await httpClient.get({ url: 'envSpec', qs: qs })
+      return await httpClient.get({ url: `envSpec`, query: qs })
     }
   }
 

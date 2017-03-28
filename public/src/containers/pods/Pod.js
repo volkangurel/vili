@@ -1,29 +1,30 @@
-import React from 'react'
+import React, { PropTypes } from 'react'
 import { connect } from 'react-redux'
 import { Link } from 'react-router'
-import _ from 'underscore'
 
 import Loading from '../../components/Loading'
+import PodLog from '../../components/PodLog'
 import { activateNav } from '../../actions/app'
-import { subPod, unsubPod, subPodLog, unsubPodLog, deletePod } from '../../actions/pods'
+import { subPod, unsubPod, subPodLog, unsubPodLog } from '../../actions/pods'
 
-function mapStateToProps (state) {
+function mapStateToProps (state, ownProps) {
+  const pods = state.pods.toJS()
+  const pod = (pods.envs &&
+               pods.envs[ownProps.params.env] &&
+               pods.envs[ownProps.params.env][ownProps.params.pod]) ||
+              {}
   return {
-    pods: state.pods.toJS()
+    pod
   }
 }
 
 @connect(mapStateToProps)
 export default class Pod extends React.Component {
-
-  subData = () => {
-    this.props.dispatch(subPod(this.props.params.env, this.props.params.pod))
-    this.props.dispatch(subPodLog(this.props.params.env, this.props.params.pod))
-  }
-
-  unsubData = () => {
-    this.props.dispatch(unsubPod(this.props.params.env, this.props.params.pod))
-    this.props.dispatch(unsubPodLog(this.props.params.env, this.props.params.pod))
+  static propTypes = {
+    dispatch: PropTypes.func,
+    params: PropTypes.object, // react router provides this
+    location: PropTypes.object, // react router provides this
+    pod: PropTypes.object
   }
 
   componentDidMount () {
@@ -38,6 +39,16 @@ export default class Pod extends React.Component {
     }
   }
 
+  subData = () => {
+    this.props.dispatch(subPod(this.props.params.env, this.props.params.pod))
+    this.props.dispatch(subPodLog(this.props.params.env, this.props.params.pod))
+  }
+
+  unsubData = () => {
+    this.props.dispatch(unsubPod(this.props.params.env, this.props.params.pod))
+    this.props.dispatch(unsubPodLog(this.props.params.env, this.props.params.pod))
+  }
+
   render () {
     var header = (
       <div className='view-header'>
@@ -48,10 +59,7 @@ export default class Pod extends React.Component {
         </ol>
       </div>
     )
-    const pod = (this.props.pods.envs &&
-      this.props.pods.envs[this.props.params.env] &&
-      this.props.pods.envs[this.props.params.env][this.props.params.pod]) ||
-      []
+    const { pod } = this.props
     if (!pod || !pod.object) {
       return (
         <div>
@@ -94,27 +102,9 @@ export default class Pod extends React.Component {
           <h4>Metadata</h4>
           <dl className='dl-horizontal'>{metadata}</dl>
         </div>
-        <Log log={pod.log} />
+        <PodLog log={pod.log} />
       </div>
     )
   }
 
-}
-
-class Log extends React.Component {
-  render () {
-    const items = _.map(this.props.log, function (line, ix) {
-      return (
-        <span key={ix}>{line + '\n'}</span>
-      )
-    })
-    return (
-      <div>
-        <h4>Log</h4>
-        <pre>
-          {items}
-        </pre>
-      </div>
-    )
-  }
 }

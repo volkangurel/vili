@@ -6,6 +6,7 @@ import deployments from './deployments'
 import deploymentPods from './deploymentPods'
 import jobs from './jobs'
 import jobRuns from './jobRuns'
+import jobRunPods from './jobRunPods'
 import pods from './pods'
 import nodes from './nodes'
 
@@ -20,13 +21,14 @@ const reducers = {
   defaultEnv: hardcodedValueReducer,
   envs: hardcodedValueReducer,
   firebase: hardcodedValueReducer,
-  app: app,
-  deployments: deployments,
-  deploymentPods: deploymentPods,
-  jobs: jobs,
-  jobRuns: jobRuns,
-  pods: pods,
-  nodes: nodes
+  app,
+  deployments,
+  deploymentPods,
+  jobs,
+  jobRuns,
+  jobRunPods,
+  pods,
+  nodes
 }
 
 export default reducers

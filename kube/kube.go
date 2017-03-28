@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/airware/vili/config"
@@ -292,7 +293,7 @@ func (c *client) getRequestBytes(method, path string, query *url.Values, body io
 
 func (c *client) unmarshalRequest(method, path string, query *url.Values, body io.Reader, dest interface{}) (respStatus *unversioned.Status, err error) {
 	respBody, respStatus, err := c.getRequestBytes(method, path, query, body)
-	if err != nil {
+	if respStatus != nil || err != nil {
 		return
 	}
 	err = json.Unmarshal(respBody, dest)
@@ -331,9 +332,12 @@ func (c *client) streamWatchRequest(path string, query *url.Values, stopChan cha
 	}
 	defer resp.Body.Close()
 
+	var waitGroup sync.WaitGroup
 	// read lines in goroutine
 	watchChan := make(chan struct{})
 	go func() {
+		waitGroup.Add(1)
+		defer waitGroup.Done()
 		scanner := bufio.NewScanner(resp.Body)
 		for scanner.Scan() {
 			err = processEvent(scanner.Bytes())
@@ -360,6 +364,7 @@ func (c *client) streamWatchRequest(path string, query *url.Values, stopChan cha
 	case <-ExitingChan:
 		break
 	}
+	waitGroup.Wait()
 	return
 }
 

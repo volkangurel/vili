@@ -1,61 +1,34 @@
-import React from 'react'
+import React, { PropTypes } from 'react'
 import { connect } from 'react-redux'
+import { Button } from 'react-bootstrap'
 import _ from 'underscore'
 
 import displayTime from '../../lib/displayTime'
-import router from '../../router'
 import Table from '../../components/Table'
 import Loading from '../../components/Loading'
 import { activateDeploymentTab } from '../../actions/app'
-import { getDeployments } from '../../actions/deployments'
+import { getDeployments, deployTag } from '../../actions/deployments'
 
-class Row extends React.Component {
-
-  render () {
-    const { data, deployedAt } = this.props
-    var className = ''
-    if (deployedAt) {
-      className = 'success'
-    }
-    var date = new Date(data.lastModified)
-    return (
-      <tr className={className}>
-        <td data-column='tag'>{data.tag}</td>
-        <td data-column='branch'>{data.branch}</td>
-        <td data-column='revision'>{data.revision || 'unknown'}</td>
-        <td data-column='buildtime'>{displayTime(date)}</td>
-        <td data-column='deployed_at'>{deployedAt}</td>
-        <td data-column='actions'>
-          <button type='button' className='btn btn-xs btn-primary' onClick={this.deployTag}>Deploy</button>
-        </td>
-      </tr>
-    )
-  }
-
-  deployTag = (event) => {
-    var self = this
-    event.target.setAttribute('disabled', 'disabled')
-    // TODO send action
-    viliApi.rollouts.create(this.props.env, this.props.deployment, {
-      tag: this.props.data.tag,
-      branch: this.props.data.branch,
-      trigger: false
-    }).then(function (deployment) {
-      router.transitionTo(`/${self.props.env}/apps/${self.props.app}/deployments/${deployment.id}`)
-    })
-  }
-
-}
-
-function mapStateToProps (state) {
+function mapStateToProps (state, ownProps) {
+  const deployments = state.deployments.toJS()
+  const deployment = (deployments.envs &&
+                      deployments.envs[ownProps.params.env] &&
+                      deployments.envs[ownProps.params.env][ownProps.params.deployment])
   return {
-    app: state.app.toJS(),
-    deployments: state.deployments.toJS()
+    deployments,
+    deployment
   }
 }
 
 @connect(mapStateToProps)
 export default class Deployment extends React.Component {
+  static propTypes = {
+    dispatch: PropTypes.func,
+    params: PropTypes.object, // react router provides this
+    location: PropTypes.object, // react router provides this
+    deployments: PropTypes.object,
+    deployment: PropTypes.object
+  }
 
   componentDidMount () {
     this.props.dispatch(activateDeploymentTab('home'))
@@ -70,10 +43,7 @@ export default class Deployment extends React.Component {
 
   render () {
     const self = this
-    const deployments = this.props.deployments
-    const deployment = (deployments.envs &&
-      deployments.envs[this.props.params.env] &&
-      deployments.envs[this.props.params.env][this.props.params.deployment])
+    const { deployments, deployment } = this.props
     if (deployments.isFetching || !deployment) {
       return (<Loading />)
     }
@@ -115,6 +85,54 @@ export default class Deployment extends React.Component {
     })
 
     return (<Table columns={columns} rows={rows} />)
+  }
+
+}
+
+@connect()
+class Row extends React.Component {
+  static propTypes = {
+    dispatch: PropTypes.func,
+    env: PropTypes.string,
+    deployment: PropTypes.string,
+    data: PropTypes.object,
+    deployedAt: PropTypes.string
+  }
+
+  deployTag = (event) => {
+    event.target.setAttribute('disabled', 'disabled')
+    const { dispatch, env, deployment, data } = this.props
+    dispatch(deployTag(env, deployment, data.tag, data.branch))
+    /*
+     * // TODO send action
+     * viliApi.rollouts.create(this.props.env, this.props.deployment, {
+     *   tag: this.props.data.tag,
+     *   branch: this.props.data.branch,
+     *   trigger: false
+     * }).then(function (deployment) {
+     *   router.transitionTo(`/${self.props.env}/apps/${self.props.app}/deployments/${deployment.id}`)
+     * })*/
+  }
+
+  render () {
+    const { data, deployedAt } = this.props
+    var className = ''
+    if (deployedAt) {
+      className = 'success'
+    }
+    var date = new Date(data.lastModified)
+    return (
+      <tr className={className}>
+        <td data-column='tag'>{data.tag}</td>
+        <td data-column='branch'>{data.branch}</td>
+        <td data-column='revision'>{data.revision || 'unknown'}</td>
+        <td data-column='buildtime'>{displayTime(date)}</td>
+        <td data-column='deployed_at'>{deployedAt}</td>
+        <td data-column='actions'>
+          <Button onClick={this.deployTag} bsStyle='primary' bsSize='xs'>Deploy</Button>
+        </td>
+      </tr>
+    )
   }
 
 }

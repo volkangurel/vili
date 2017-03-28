@@ -234,7 +234,10 @@ func deploymentCreateServiceHandler(c *echo.Context) error {
 		return server.ErrorResponse(c, errors.Conflict("Service exists"))
 	}
 	deployment := &v1beta1.Deployment{}
-	deploymentTemplate.Parse(deployment)
+	err = deploymentTemplate.Parse(deployment)
+	if err != nil {
+		return err
+	}
 
 	deploymentPort, err := getPortFromDeployment(deployment)
 	if err != nil {

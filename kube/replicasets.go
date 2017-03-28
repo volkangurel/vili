@@ -7,8 +7,10 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/airware/vili/errors"
 	"github.com/airware/vili/kube/extensions/v1beta1"
 	"github.com/airware/vili/kube/unversioned"
+	"github.com/airware/vili/log"
 )
 
 // ReplicaSets is the default replicasets service instance
@@ -118,4 +120,55 @@ func (s *ReplicaSetsService) Delete(env, name string) (*v1beta1.ReplicaSet, *unv
 		return nil, status, err
 	}
 	return resp, nil, nil
+}
+
+// ReplicaSetEvent describes an event on a replica set
+type ReplicaSetEvent struct {
+	Type   WatchEventType      `json:"type"`
+	Object *v1beta1.ReplicaSet `json:"object"`
+}
+
+// Watch watches replica sets in `env`
+func (s *ReplicaSetsService) Watch(env string, query *url.Values, eventChan chan<- *ReplicaSetEvent, stopChan chan struct{}) (bool, error) {
+	client, err := getClient(env)
+	if err != nil {
+		return false, invalidEnvError(env)
+	}
+	if query == nil {
+		query = &url.Values{}
+	}
+	if query.Get("resourceVersion") == "" {
+		// get the current replica sets first
+		replicaSetList := new(v1beta1.ReplicaSetList)
+		status, err := client.unmarshalRequest("GET", "replicasets", query, nil, replicaSetList)
+		if err != nil {
+			return false, err
+		}
+		if status != nil {
+			return false, errors.BadRequest(status.Message)
+		}
+		for _, replicaSet := range replicaSetList.Items {
+			rs := replicaSet
+			eventChan <- &ReplicaSetEvent{
+				Type:   WatchEventInit,
+				Object: &rs,
+			}
+		}
+		query.Set("resourceVersion", replicaSetList.ListMeta.ResourceVersion)
+	}
+	log.Debugf("subscribing to replicaset events - %s", env)
+	// then watch for events starting from the resource version
+	return client.jsonStreamWatchRequest("replicasets", query, stopChan, func(eventType WatchEventType, body json.RawMessage) error {
+		event := &ReplicaSetEvent{
+			Type:   eventType,
+			Object: new(v1beta1.ReplicaSet),
+		}
+		err = json.Unmarshal(body, event.Object)
+		if err != nil {
+			log.WithError(err).WithField("body", string(body)).Error("error parsing replicaset json")
+			return err
+		}
+		eventChan <- event
+		return nil
+	})
 }

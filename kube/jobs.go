@@ -100,19 +100,22 @@ func (s *JobsService) Watch(env string, query *url.Values, eventChan chan<- *Job
 	}
 	if query.Get("resourceVersion") == "" {
 		// get the current job first
-		job := new(v1beta1.Job)
-		status, err := client.unmarshalRequest("GET", "jobs", query, nil, job)
+		jobList := new(v1beta1.JobList)
+		status, err := client.unmarshalRequest("GET", "jobs", query, nil, jobList)
 		if err != nil {
 			return false, err
 		}
 		if status != nil {
 			return false, errors.BadRequest(status.Message)
 		}
-		eventChan <- &JobEvent{
-			Type:   WatchEventInit,
-			Object: job,
+		for _, job := range jobList.Items {
+			j := job
+			eventChan <- &JobEvent{
+				Type:   WatchEventInit,
+				Object: &j,
+			}
 		}
-		query.Set("resourceVersion", job.ObjectMeta.ResourceVersion)
+		query.Set("resourceVersion", jobList.ListMeta.ResourceVersion)
 	}
 	log.Debugf("subscribing to job events - %s", env)
 	// then watch for events starting from the resource version
