@@ -1,14 +1,14 @@
 import React, { PropTypes } from 'react'
 import { connect } from 'react-redux'
 import { Link } from 'react-router'
-import { Panel, Button } from 'react-bootstrap'
+import { Panel, ButtonToolbar, Button, Badge } from 'react-bootstrap'
 import _ from 'underscore'
 
 import displayTime from '../../lib/displayTime'
 import Table from '../../components/Table'
 import Loading from '../../components/Loading'
 import { activateDeploymentTab } from '../../actions/app'
-import { getDeployments } from '../../actions/deployments'
+import { getDeployments, scaleDeployment } from '../../actions/deployments'
 import { subDeploymentPods, unsubDeploymentPods } from '../../actions/deploymentPods'
 import { deletePod } from '../../actions/pods'
 
@@ -67,49 +67,79 @@ export default class DeploymentDashboard extends React.Component {
     this.props.dispatch(unsubDeploymentPods(params.env, params.deployment))
   }
 
+  scaleDeployment = () => {
+    var replicas = prompt('Enter the number of replicas to scale to')
+    if (!replicas) {
+      return
+    }
+    replicas = parseInt(replicas)
+    if (_.isNaN(replicas)) {
+      return
+    }
+    this.props.dispatch(scaleDeployment(this.props.params.env, this.props.params.deployment, replicas))
+  }
+
+  renderHeader () {
+    return (
+      <div className='clearfix' style={{marginBottom: '10px'}}>
+        <ButtonToolbar className='pull-right'>
+          <Button bsStyle='success' bsSize='small' onClick={this.resumeDeployment}>Resume</Button>
+          <Button bsStyle='warning' bsSize='small' onClick={this.pauseDeployment}>Pause</Button>
+          <Button bsStyle='danger' bsSize='small' onClick={this.rollbackDeployment}>Rollback</Button>
+          <Button bsStyle='info' bsSize='small' onClick={this.scaleDeployment}>Scale</Button>
+        </ButtonToolbar>
+      </div>
+    )
+  }
+
   renderPodPanels () {
     const { params, deployment, pods } = this.props
     return _.map(deployment.rolloutHistory, (replicaSet) => {
+      const replicaSetPods = getReplicaSetPods(replicaSet, pods)
+      if (replicaSetPods.length === 0 && replicaSet.metadata.name !== deployment.replicaSet.metadata.name) {
+        return null
+      }
       return (
         <RolloutPanel
           key={replicaSet.metadata.name}
           env={params.env}
           deployment={deployment}
           replicaSet={replicaSet}
-          pods={pods}
+          pods={replicaSetPods}
         />
       )
     })
   }
 
   renderHistoryTable () {
-    const { deployment } = this.props
-    const deploymentRevision = deployment.replicaSet.metadata.annotations['deployment.kubernetes.io/revision']
+    const { deployment, pods } = this.props
     const columns = [
       {title: 'Revision', key: 'revision'},
       {title: 'Tag', key: 'tag'},
       {title: 'Time', key: 'time'},
-      {title: 'Replicas', key: 'replicas'},
       {title: 'Actions', key: 'actions'}
     ]
 
     const rows = _.map(deployment.rolloutHistory, (replicaSet) => {
+      const replicaSetPods = getReplicaSetPods(replicaSet, pods)
+      if (replicaSetPods.length > 0 || replicaSet.metadata.name === deployment.replicaSet.metadata.name) {
+        return null
+      }
       return {
         component: (
           <HistoryRow
-            key={revision}
-            revision={revision}
-            tag={replicaSet.spec.template.spec.containers[0].image.split(':')[1]}
-            time={new Date(replicaSet.metadata.creationTimestamp)}
-            replicas={replicaSet.status.replicas}
-            deploymentRevision={deploymentRevision}
-            env={this.props.params.env}
-            deployment={this.props.params.deployment}
+            key={replicaSet.metadata.name}
+            replicaSet={replicaSet}
           />
         )
       }
     })
-    return (<Table columns={columns} rows={rows} />)
+    return (
+      <div>
+        <h4>Rollout History</h4>
+        <Table columns={columns} rows={rows} />
+      </div>
+    )
   }
 
   render () {
@@ -119,7 +149,9 @@ export default class DeploymentDashboard extends React.Component {
     }
     return (
       <div>
+        {this.renderHeader()}
         {this.renderPodPanels()}
+        {this.renderHistoryTable()}
       </div>
     )
   }
@@ -136,70 +168,33 @@ class RolloutPanel extends React.Component {
     pods: PropTypes.object
   }
 
-  rollback = (event) => {
-    const self = this
-    event.target.setAttribute('disabled', 'disabled')
-    // TODO send action
-    viliApi.rollouts.create(this.props.env, this.props.deployment, {
-      tag: this.props.data.tag,
-      branch: this.props.data.branch,
-      trigger: false
-    }).then(function (deployment) {
-      router.transitionTo(`/${self.props.env}/apps/${self.props.app}/deployments/${deployment.id}`)
-    })
-  }
-
   deletePod = (event, pod) => {
     event.target.setAttribute('disabled', 'disabled')
     this.props.dispatch(deletePod(this.props.env, pod))
   }
 
-  renderReplicaSetTable () {
-    return null
-    const { deployment, replicaSet } = this.props
-    const { readyReplicas, replicas } = replicaSet.status
-    const revision = replicaSet.metadata.annotations['deployment.kubernetes.io/revision']
+  renderReplicaSetMetadata () {
+    const { replicaSet } = this.props
     const tag = replicaSet.spec.template.spec.containers[0].image.split(':')[1]
     const time = displayTime(new Date(replicaSet.metadata.creationTimestamp))
-    const replicasStatus = `${readyReplicas || 0}/${replicas}`
-    const actions = []
-    if (replicaSet.metadata.name !== deployment.replicaSet.metadata.name) {
-      actions.push(
-        <Button bsStyle='danger' bsSize='xs' onClick={this.rollback}>Rollback</Button>
-      )
-    }
-    const columns = [
-      {title: 'Revision', key: 'revision'},
-      {title: 'Tag', key: 'tag'},
-      {title: 'Time', key: 'time'},
-      {title: 'Replicas', key: 'replicasStatus'},
-      {title: 'Actions', key: 'actions'}
-    ]
-    const rows = [
-      {
-        revision,
-        tag,
-        time,
-        replicasStatus,
-        actions
-      }
-    ]
-    return (<Table columns={columns} rows={rows} fill />)
+    return (
+      <div>
+        <dl>
+          <dt>Tag</dt><dd>{tag}</dd>
+          <dt>Time</dt><dd>{time}</dd>
+        </dl>
+      </div>
+    )
   }
 
   renderPodsTable () {
     const self = this
-    const { env, replicaSet, pods } = this.props
-    const generateName = replicaSet.metadata.name + '-'
-    const replicaSetPods = _.filter(pods, (pod) => {
-      return pod.metadata.generateName === generateName
-    })
-    if (replicaSetPods.length === 0) {
+    const { env, pods } = this.props
+    if (pods.length === 0) {
       return null
     }
-
     const columns = [
-      {title: 'Name', key: 'name'},
+      {title: 'Pod', key: 'name'},
       {title: 'Host', key: 'host'},
       {title: 'Phase', key: 'phase'},
       {title: 'Ready', key: 'ready'},
@@ -208,7 +203,7 @@ class RolloutPanel extends React.Component {
       {title: 'Actions', key: 'actions'}
     ]
 
-    const rows = _.map(replicaSetPods, (pod) => {
+    const rows = _.map(pods, (pod) => {
       const ready = pod.status.phase === 'Running' &&
                     _.every(pod.status.containerStatuses, (cs) => cs.ready)
 
@@ -216,9 +211,9 @@ class RolloutPanel extends React.Component {
       const hostLink = (<Link to={`/${env}/nodes/${pod.spec.nodeName}`}>{pod.spec.nodeName}</Link>)
       var actions = (
         <Button
-          onClick={(event) => self.deletePod(event, pod.metadata.name)}
           bsStyle='danger'
           bsSize='xs'
+          onClick={(event) => self.deletePod(event, pod.metadata.name)}
         >
           Delete
         </Button>
@@ -238,41 +233,75 @@ class RolloutPanel extends React.Component {
   }
 
   render () {
-    const { env, deployment, replicaSet } = this.props
-    //    const revision = replicaSet.metadata.annotations['deployment.kubernetes.io/revision']
+    const { deployment, replicaSet, pods } = this.props
     const revision = replicaSet.metadata.annotations['deployment.kubernetes.io/revision']
-    const tag = replicaSet.spec.template.spec.containers[0].image.split(':')[1]
-    const time = new Date(replicaSet.metadata.creationTimestamp)
-
     var bsStyle = ''
     if (replicaSet.metadata.name === deployment.replicaSet.metadata.name) {
       bsStyle = 'success'
-    } else if (replicaSet.status.replicas > 0) {
+    } else {
       bsStyle = 'warning'
     }
 
+    const header = (
+      <div>
+        <strong>{revision}</strong>
+        <Badge bsStyle={bsStyle} pullRight>{pods.length}/{replicaSet.status.replicas}</Badge>
+      </div>
+    )
     return (
       <Panel
         key={replicaSet.metadata.name}
-        header={<strong>{replicaSet.metadata.name}</strong>}
+        header={header}
         bsStyle={bsStyle}
       >
-        {this.renderReplicaSetTable()}
+        {this.renderReplicaSetMetadata()}
         {this.renderPodsTable()}
       </Panel>
     )
+  }
+}
 
+class HistoryRow extends React.Component {
+  static propTypes = {
+    replicaSet: PropTypes.object
+  }
 
+  rollbackTo = (event) => {
+    const { env, deployment, revision } = this.props
+    event.target.setAttribute('disabled', 'disabled')
+    /* this.props.dispatch(rollbackDeployment(env, deployment, revision))*/
+
+    // TODO send action
+    /* viliApi.rollouts.create(this.props.env, this.props.deployment, {
+     *   tag: this.props.data.tag,
+     *   branch: this.props.data.branch,
+     *   trigger: false
+     * }).then(function (deployment) {
+     *   router.transitionTo(`/${self.props.env}/apps/${self.props.app}/deployments/${deployment.id}`)
+     * })*/
+  }
+
+  render () {
+    const { replicaSet } = this.props
+    const revision = replicaSet.metadata.annotations['deployment.kubernetes.io/revision']
+    const tag = replicaSet.spec.template.spec.containers[0].image.split(':')[1]
+    const time = displayTime(new Date(replicaSet.metadata.creationTimestamp))
     return (
-      <tr className={className}>
-        <td data-column='revision'><Link to={`/${env}/deployments/${deployment}/rollouts/${revision}`}>{revision}</Link></td>
+      <tr>
+        <td data-column='revision'>{revision}</td>
         <td data-column='tag'>{tag}</td>
-        <td data-column='time'>{displayTime(time)}</td>
-        <td data-column='replicas'>{replicas}</td>
+        <td data-column='time'>{time}</td>
         <td data-column='actions'>
-          <button type='button' className='btn btn-xs btn-danger' onClick={this.rollback}>Rollback</button>
+          <Button bsStyle='warning' bsSize='xs' onClick={this.rollbackTo}>Rollback To</Button>
         </td>
       </tr>
     )
   }
+}
+
+function getReplicaSetPods (replicaSet, pods) {
+  const generateName = replicaSet.metadata.name + '-'
+  return _.filter(pods, (pod) => {
+    return pod.metadata.generateName === generateName
+  })
 }

@@ -3,10 +3,14 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"net/url"
 	"sort"
 	"strconv"
 	"sync"
+
+	"golang.org/x/net/websocket"
 
 	"github.com/airware/vili/docker"
 	"github.com/airware/vili/environments"
@@ -21,63 +25,167 @@ import (
 	echo "gopkg.in/labstack/echo.v1"
 )
 
-// DeploymentsResponse is the response for the deployments endpoint
-type DeploymentsResponse struct {
-	Deployments map[string]*DeploymentResponse `json:"deployments,omitempty"`
+var (
+	deploymentsQueryParams = []string{"labelSelector", "fieldSelector", "resourceVersion"}
+)
+
+func deploymentsGetHandler(c *echo.Context) error {
+	env := c.Param("env")
+	query := filterQueryFields(c, deploymentsQueryParams)
+
+	if c.Request().URL.Query().Get("watch") != "" {
+		// watch deployments and return over websocket
+		var err error
+		websocket.Handler(func(ws *websocket.Conn) {
+			err = deploymentsWatchHandler(ws, env, query)
+			ws.Close()
+		}).ServeHTTP(c.Response(), c.Request())
+		return err
+	}
+
+	// otherwise, return the deployments list
+	resp, _, err := kube.Deployments.List(env, query)
+	if err != nil {
+		return err
+	}
+	return c.JSON(http.StatusOK, resp)
 }
 
-func deploymentsHandler(c *echo.Context) error {
-	env := c.Param("env")
-
-	resp := DeploymentsResponse{
-		Deployments: make(map[string]*DeploymentResponse),
-	}
-	failed := false
-
-	// repository
+func deploymentsWatchHandler(ws *websocket.Conn, env string, query *url.Values) error {
+	stopChan := make(chan struct{})
+	eventChan := make(chan *kube.DeploymentEvent)
 	var waitGroup sync.WaitGroup
 
-	// deployments
+	go func() {
+		var cmd interface{}
+		err := websocket.JSON.Receive(ws, cmd)
+		if err == io.EOF {
+			close(stopChan)
+		}
+	}()
 	waitGroup.Add(1)
 	go func() {
 		defer waitGroup.Done()
-		deployments, _, err := kube.Deployments.List(env, nil)
-		if err != nil {
-			log.Error(err)
-			failed = true
-			return
-		}
-		var rsMutex sync.Mutex
-		for _, deployment := range deployments.Items {
-			resp.Deployments[deployment.Name] = new(DeploymentResponse)
-			// replica sets for deployment
-			waitGroup.Add(1)
-			go func(env string, deployment v1beta1.Deployment) {
-				defer waitGroup.Done()
-				rh, err := getRolloutHistoryForDeployment(env, &deployment)
-				if err != nil {
-					log.Error(err)
-					failed = true
-					return
-				}
-				rs, err := getReplicaSetForDeployment(&deployment, rh)
-				if err != nil {
-					log.Error(err)
-					failed = true
-					return
-				}
-				rsMutex.Lock()
-				resp.Deployments[deployment.Name].RolloutHistory = rh
-				resp.Deployments[deployment.Name].ReplicaSet = rs
-				rsMutex.Unlock()
-			}(env, deployment)
+		for deploymentEvent := range eventChan {
+			err := websocket.JSON.Send(ws, deploymentEvent)
+			if err != nil {
+				log.WithError(err).Error("error writing to deployments stream")
+			}
 		}
 	}()
 
+	cleanExit, err := kube.Deployments.Watch(env, query, eventChan, stopChan)
+	close(eventChan)
 	waitGroup.Wait()
-	if failed {
-		return fmt.Errorf("failed one of the service calls")
+	if cleanExit {
+		websocket.JSON.Send(ws, webSocketCloseMessage)
 	}
+	return err
+}
+
+// // DeploymentsResponse is the response for the deployments endpoint
+// type DeploymentsResponse struct {
+// 	Deployments map[string]*DeploymentResponse `json:"deployments,omitempty"`
+// }
+
+// func deploymentsGetHandlerOld(c *echo.Context) error {
+// 	env := c.Param("env")
+
+// 	resp := DeploymentsResponse{
+// 		Deployments: make(map[string]*DeploymentResponse),
+// 	}
+// 	failed := false
+
+// 	// repository
+// 	var waitGroup sync.WaitGroup
+
+// 	// deployments
+// 	waitGroup.Add(1)
+// 	go func() {
+// 		defer waitGroup.Done()
+// 		deployments, _, err := kube.Deployments.List(env, nil)
+// 		if err != nil {
+// 			log.Error(err)
+// 			failed = true
+// 			return
+// 		}
+// 		var rsMutex sync.Mutex
+// 		for _, deployment := range deployments.Items {
+// 			resp.Deployments[deployment.Name] = new(DeploymentResponse)
+// 			// replica sets for deployment
+// 			waitGroup.Add(1)
+// 			go func(env string, deployment v1beta1.Deployment) {
+// 				defer waitGroup.Done()
+// 				rh, err := getRolloutHistoryForDeployment(env, &deployment)
+// 				if err != nil {
+// 					log.Error(err)
+// 					failed = true
+// 					return
+// 				}
+// 				rs, err := getReplicaSetForDeployment(&deployment, rh)
+// 				if err != nil {
+// 					log.Error(err)
+// 					failed = true
+// 					return
+// 				}
+// 				rsMutex.Lock()
+// 				resp.Deployments[deployment.Name].RolloutHistory = rh
+// 				resp.Deployments[deployment.Name].ReplicaSet = rs
+// 				rsMutex.Unlock()
+// 			}(env, deployment)
+// 		}
+// 	}()
+
+// 	waitGroup.Wait()
+// 	if failed {
+// 		return fmt.Errorf("failed one of the service calls")
+// 	}
+
+// 	return c.JSON(http.StatusOK, resp)
+// }
+
+type deploymentRepositoryResponse struct {
+	Images []*docker.Image `json:"images,omitempty"`
+}
+
+func deploymentRepositoryGetHandler(c *echo.Context) error {
+	env := c.Param("env")
+	deployment := c.Param("deployment")
+
+	environment, err := environments.Get(env)
+	if err != nil {
+		return err
+	}
+
+	resp := new(deploymentRepositoryResponse)
+	images, err := docker.GetRepository(deployment, environment.RepositoryBranches())
+	if err != nil {
+		return err
+	}
+	resp.Images = images
+
+	return c.JSON(http.StatusOK, resp)
+}
+
+type deploymentSpecResponse struct {
+	Spec string `json:"spec,omitempty"`
+}
+
+func deploymentSpecGetHandler(c *echo.Context) error {
+	env := c.Param("env")
+	deployment := c.Param("deployment")
+
+	environment, err := environments.Get(env)
+	if err != nil {
+		return err
+	}
+
+	resp := new(deploymentSpecResponse)
+	body, err := templates.Deployment(environment.Name, environment.Branch, deployment)
+	if err != nil {
+		return err
+	}
+	resp.Spec = string(body)
 
 	return c.JSON(http.StatusOK, resp)
 }
@@ -186,7 +294,7 @@ func deploymentHandler(c *echo.Context) error {
 	return c.JSON(http.StatusOK, resp)
 }
 
-func deploymentCreateServiceHandler(c *echo.Context) error {
+func deploymentServiceCreateHandler(c *echo.Context) error {
 	env := c.Param("env")
 	deploymentName := c.Param("deployment")
 

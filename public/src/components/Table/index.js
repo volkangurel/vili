@@ -41,6 +41,9 @@ export default class ViliTable extends React.Component {
       header.push(<tr key='subheader-row'>{subheaderCells}</tr>)
     }
     var rows = _.map(this.props.rows, function (row, ix) {
+      if (!row) {
+        return null
+      }
       if (row.component) {
         return row.component
       }

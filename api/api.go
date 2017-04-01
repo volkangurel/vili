@@ -20,20 +20,30 @@ var ExitingChan = make(chan struct{})
 func AddHandlers(s *server.Server) {
 	envPrefix := "/api/v1/envs/:env/"
 	// deployments
-	s.Echo().Get(envPrefix+"deployments", envMiddleware(deploymentsHandler))
-	s.Echo().Get(envPrefix+"deployments/:deployment", envMiddleware(deploymentHandler))
-	s.Echo().Post(envPrefix+"deployments/:deployment/service", envMiddleware(deploymentCreateServiceHandler))
+	s.Echo().Get(envPrefix+"deployments", envMiddleware(deploymentsGetHandler))
+	s.Echo().Get(envPrefix+"deployments/:deployment/repository", envMiddleware(deploymentRepositoryGetHandler))
+	s.Echo().Get(envPrefix+"deployments/:deployment/spec", envMiddleware(deploymentSpecGetHandler))
+	s.Echo().Get(envPrefix+"deployments/:deployment/service", envMiddleware(deploymentServiceGetHandler))
+	s.Echo().Post(envPrefix+"deployments/:deployment/service", envMiddleware(deploymentServiceCreateHandler))
 	s.Echo().Put(envPrefix+"deployments/:deployment/:action", envMiddleware(deploymentActionHandler))
 
 	// rollouts
 	s.Echo().Post(envPrefix+"deployments/:deployment/rollouts", envMiddleware(rolloutCreateHandler))
+	// s.Echo().Get(envPrefix+"deployments/:deployment/rollouts", envMiddleware(rolloutsGetHandler))
 	// s.Echo().Put(envPrefix+"deployments/:deployment/rollouts/:rollout/edit", envMiddleware(rolloutEditHandler))
 	// s.Echo().Post(envPrefix+"deployments/:deployment/rollouts/:rollout/:action", envMiddleware(rolloutActionHandler))
 
+	// replica sets
+	s.Echo().Get(envPrefix+"replicasets", envMiddleware(replicaSetsGetHandler))
+
 	// jobs
-	s.Echo().Get(envPrefix+"jobs/:job", envMiddleware(jobGetHandler))
+	s.Echo().Get(envPrefix+"jobs", envMiddleware(jobsGetHandler))
+	s.Echo().Get(envPrefix+"jobs/:job/repository", envMiddleware(jobRepositoryGetHandler))
+	s.Echo().Get(envPrefix+"jobs/:job/spec", envMiddleware(jobSpecGetHandler))
+
+	// runs
 	s.Echo().Post(envPrefix+"jobs/:job/runs", envMiddleware(jobRunCreateHandler))
-	s.Echo().Get(envPrefix+"jobs/:job/runs", envMiddleware(jobRunsGetHandler))
+	// s.Echo().Get(envPrefix+"jobs/:job/runs", envMiddleware(jobRunsGetHandler))
 	// s.Echo().Post(envPrefix+"jobs/:job/runs/:run/:action", envMiddleware(jobRunActionHandler))
 
 	// nodes
@@ -43,7 +53,6 @@ func AddHandlers(s *server.Server) {
 
 	// pods
 	s.Echo().Get(envPrefix+"pods", envMiddleware(podsHandler))
-	// s.Echo().Get(envPrefix+"pods/:pod", envMiddleware(podHandler))
 	s.Echo().Get(envPrefix+"pods/:pod/log", envMiddleware(podLogHandler))
 	s.Echo().Delete(envPrefix+"pods/:pod", envMiddleware(podDeleteHandler))
 
